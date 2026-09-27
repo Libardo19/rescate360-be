@@ -79,6 +79,7 @@ Cada módulo tiene su archivo en `routes/`, `controllers/`, `services/` y `schem
 | Módulo | Endpoints principales | Iteración |
 |---|---|---|
 | `auth` | `POST /auth/registro`, `/auth/login`, `/auth/refresh-token` | MVP |
+| `organizaciones` | `POST/GET /organizaciones`, `GET/PATCH /organizaciones/{id}`, `POST/GET/PATCH/DELETE /organizaciones/{id}/administradores[/{usuario_id}]` — solo `super_admin` | MVP |
 | `usuarios` | `GET/PATCH/DELETE /usuarios/{id}`, `POST /usuarios/{id}/contactos-emergencia` | MVP |
 | `reportes` | `POST/GET /reportes`, `PATCH /reportes/{id}/verificar · rechazar · marcar-duplicado` | MVP |
 | `solicitudes_ayuda` | `POST/GET /solicitudes-ayuda`, `PATCH …/{id}/prioridad`, `PATCH …/{id}/estado` | MVP |
@@ -109,27 +110,57 @@ Todos los jobs deben ser **idempotentes**. La IA **nunca decide sola**: `priorid
 
 ## Migraciones (orden)
 
-`0001_habilitar_postgis` → `0002_crear_usuarios` → `0003_crear_contactos_emergencia` → `0004_crear_reportes` → `0005_crear_personas_desaparecidas` → `0006_crear_solicitudes_ayuda` → `0007_crear_centros_ayuda` → `0008_crear_alertas` → `0009_crear_zonas_peligrosas` → `0010_crear_donaciones` → `0011_crear_guia_emergencia` → `0012_crear_cola_alertas_offline` → `0013_indices_busqueda` → `0014_crear_auditoria` → `0015_crear_consentimientos`
+`0001_habilitar_postgis` → `0002_crear_usuarios` → `0003_crear_contactos_emergencia` → `0004_crear_reportes` → `0005_crear_personas_desaparecidas` → `0006_crear_solicitudes_ayuda` → `0007_crear_centros_ayuda` → `0008_crear_alertas` → `0009_crear_zonas_peligrosas` → `0010_crear_donaciones` → `0011_crear_guia_emergencia` → `0012_crear_cola_alertas_offline` → `0013_indices_busqueda` → `0014_crear_auditoria` → `0015_crear_consentimientos` → `0016_crear_organizaciones`
 
 Las migraciones 0014 y 0015 **no están en el modelo de datos original**. Se agregaron por el marco legal: trazabilidad de quién verificó o modificó qué, y registro de la autorización de tratamiento de datos (Ley 1581 de 2012).
 
+La migración **0016** agrega la tabla `organizaciones` y la columna `usuarios.organizacion_id`, que queda **nullable a propósito**: solo el `super_admin` se registra sin organización. `usuarios.rol` admite `ciudadano`, `voluntario`, `administrador` y `super_admin`.
+
 ## Roles
 
-| Función | Ciudadano | Voluntario | Administrador |
-|---|:---:|:---:|:---:|
-| Mapa, alertas, centros, guía | ✅ | ✅ | ✅ |
-| Reportar / solicitar ayuda | ✅ | ✅ | ✅ |
-| Seguimiento de solicitudes/reportes | ❌ | ✅ | ✅ |
-| Verificar / rechazar reportes | ❌ | ❌ | ✅ |
-| Modificar prioridad de IA | ❌ | ❌ | ✅ |
-| Gestionar centros, zonas, alertas, donaciones, usuarios | ❌ | ❌ | ✅ |
+El `Administrador` está **acotado a una organización** (cada organización —p. ej. una fundación, un cuerpo de bomberos o una ONG— tiene sus propios administradores). El `Super admin` es el único rol **global**: no pertenece a ninguna organización y opera sobre todas.
+
+| Función | Ciudadano | Voluntario | Administrador | Super admin |
+|---|:---:|:---:|:---:|:---:|
+| Mapa, alertas, centros, guía | ✅ | ✅ | ✅ | ✅ |
+| Reportar / solicitar ayuda | ✅ | ✅ | ✅ | ✅ |
+| Seguimiento de solicitudes/reportes | ❌ | ✅ | ✅ | ✅ |
+| Verificar / rechazar reportes | ❌ | ❌ | ✅ | ✅ |
+| Modificar prioridad de IA | ❌ | ❌ | ✅ | ✅ |
+| Gestionar centros, zonas, alertas, donaciones, usuarios | ❌ | ❌ | ✅ | ✅ |
+| Crear organizaciones | ❌ | ❌ | ❌ | ✅ |
+| Crear administradores de una organización | ❌ | ❌ | ❌ | ✅ |
+| Quitar / desactivar administradores de una organización | ❌ | ❌ | ❌ | ✅ |
+| Mover recursos entre organizaciones | ❌ | ❌ | ❌ | ✅ |
+| Eliminar o desactivar una organización | ❌ | ❌ | ❌ | ✅ |
+
+### Rol `super_admin`
+
+Es el **dueño de la plataforma**. Su responsabilidad principal es la **estructura multi-organización**: crear organizaciones y crear los administradores que las gobiernan. Además tiene acceso a **todas las funciones** de los demás roles, en **todas** las organizaciones.
+
+| Capacidad | Detalle |
+|---|---|
+| Crear organizaciones | `POST /organizaciones` — alta con nombre, NIT, municipio, tipo y datos de contacto |
+| Crear admins de organización | `POST /organizaciones/{id}/administradores` — crea el usuario o promueve un ciudadano existente a `administrador` de esa organización |
+| Administrar admins | `GET /organizaciones/{id}/administradores`, `PATCH/DELETE /organizaciones/{id}/administradores/{usuario_id}` (revocar, cambiar a ciudadano) |
+| Gestión de organizaciones | `GET/PATCH /organizaciones`, `GET /organizaciones/{id}` — listar, editar, activar/desactivar |
+| Acceso total | Todos los endpoints de todos los módulos, de cualquier organización, sin filtro de alcance |
+
+Reglas de implementación:
+
+- **Alcance global vs. scoped:** `super_admin` es el único rol con `organizacion_id = NULL`. Los usuarios `voluntario` y `administrador` pertenecen a exactamente una organización.
+- **Filtro obligatorio en repositorios:** las consultas se acotan por `organizacion_id` salvo que quien llama sea `super_admin`; este último puede además pasar `?organizacion_id=` para filtrar por una en concreto.
+- **El super admin se crea por bootstrap,** no por autorregistro: lo siembra `scripts/seed/` o una migración inicial. `POST /auth/registro` nunca puede asignar este rol.
+- **Autoprotección:** un `super_admin` no puede desactivarse ni quitarse el rol a sí mismo, y el sistema no permite quedar sin ningún `super_admin` activo.
+- **Trazabilidad total:** toda acción suya queda en `auditoria` con `usuario_actor_id` y `organizacion_id` de la organización afectada.
+- **Job de mantenimiento:** `limpiar_datos_retencion` y el resto de jobs programados corren igual para todos; el super admin solo interviene si se requiere un ajuste puntual.
 
 ## Requisitos legales que afectan al backend
 
 - **Autorización de datos** (Ley 1581/2012, Decreto 1074/2015): guardar el consentimiento de cada usuario (`consentimientos`) y permitir consultar, corregir y eliminar sus datos.
 - **Ubicación**: la ubicación exacta de quien pide ayuda solo la ven voluntarios o administradores asignados. Los demás ciudadanos ven un punto aproximado.
 - **Fotos sensibles y de menores** (Ley 1098/2006): acceso restringido y borrado por retención.
-- **Auditoría** (Ley 1273/2009): `audit_middleware` + tabla `auditoria` con quién revisó qué y cuándo.
+- **Auditoría** (Ley 1273/2009): `audit_middleware` + tabla `auditoria` con quién revisó qué y cuándo. Se registra también el alta de organizaciones y de sus administradores por parte del `super_admin`.
 - **IA** (CONPES 4144/2025): guardar la prioridad sugerida junto a la decisión humana final.
 
 ## Roadmap (8 semanas)
@@ -137,7 +168,7 @@ Las migraciones 0014 y 0015 **no están en el modelo de datos original**. Se agr
 | Semana | Entregable |
 |---|---|
 | 1 | Setup, arquitectura de 4 capas, migraciones 0001-0003, autenticación |
-| 2 | Mapa (consultas geoespaciales) + reportes |
+| 2 | `super_admin`, organizaciones, admins de organización, mapa (consultas geoespaciales) + reportes |
 | 3 | Solicitudes de ayuda + job de clasificación por IA |
 | 4 | Verificación administrativa + alertas + centros — **cierre MVP** |
 | 5 | Personas desaparecidas + zonas peligrosas |
