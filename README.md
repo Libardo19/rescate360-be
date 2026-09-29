@@ -7,7 +7,7 @@ Plataforma de apoyo y coordinación comunitaria ante emergencias. Este repositor
 Universidad Popular del Cesar · Ingeniería de Software II
 Equipo: Libardo José Acosta García, Sergio Eli Saucedo, Oscar Javier Ávila Ovallos
 
-> **Estado:** solo estructura de carpetas y archivos vacíos. Todavía no hay código.
+> **Estado:** ambiente listo (Docker, dependencias, migraciones, CI). Los módulos todavía están vacíos.
 
 ---
 
@@ -16,12 +16,54 @@ Equipo: Libardo José Acosta García, Sergio Eli Saucedo, Oscar Javier Ávila Ov
 | Pieza | Tecnología |
 |---|---|
 | API | Python + **FastAPI** (Uvicorn) |
-| Base de datos | **PostgreSQL + PostGIS** (SQLAlchemy + GeoAlchemy2) |
+| Base de datos | **PostgreSQL 16 + PostGIS 3.4** (SQLAlchemy 2.0 + GeoAlchemy2) |
+| Runtime | Python 3.12 en Docker (`python:3.12-slim`) |
+| Herramientas | pgAdmin 4 (modelado y consulta de la BD) |
 | Migraciones | **Alembic** |
 | Colas / workers | **Celery + Redis** (Celery Beat para jobs programados) |
-| Auth | JWT (`python-jose`) + `passlib[bcrypt]` |
+| Auth | JWT (`PyJWT`) + `bcrypt` |
 | Externos | Servicio de IA (priorización), Firebase (push), Twilio (SMS de respaldo) |
 | Pruebas | `pytest` + `httpx` |
+
+## Ambiente de desarrollo (Docker)
+
+> Guía paso a paso para montar el proyecto en tu PC: [docs/AMBIENTACION.md](docs/AMBIENTACION.md).
+
+Todo el backend corre en contenedores: **no hace falta instalar Python ni PostgreSQL en el PC**. Solo se necesita Docker Desktop.
+
+```bash
+cp .env.example .env                              # una sola vez
+docker compose up -d --build                      # levanta los 6 contenedores
+docker compose exec api alembic upgrade head      # aplica las migraciones
+```
+
+| Contenedor | Qué es | Acceso desde tu PC |
+|---|---|---|
+| `rescate360-db` | PostgreSQL 16 + PostGIS 3.4 (`postgis/postgis:16-3.4`) | `localhost:5435` |
+| `rescate360-redis` | Redis 7.4, broker de Celery | `localhost:6379` |
+| `rescate360-api` | FastAPI con recarga automática | http://localhost:8000/docs |
+| `rescate360-worker` | Worker de Celery (jobs por evento) | — |
+| `rescate360-beat` | Celery Beat (jobs programados) | — |
+| `rescate360-pgadmin` | pgAdmin 4, para ver tablas y el diagrama ER | http://localhost:5050 |
+
+- **Salud:** `GET /health` (la API está arriba) y `GET /health/ready` (responden PostGIS y Redis).
+- **pgAdmin:** abre sin login. El servidor *RESCATE360 (local)* ya está registrado; la primera vez pide la contraseña de la BD (`POSTGRES_PASSWORD` del `.env`). Para ver el modelado: clic derecho sobre la base `rescate360` → **ERD For Database**.
+- **Puerto de la BD:** 5435 porque 5432-5434 los usan otros proyectos locales. Dentro de Docker la API siempre se conecta a `db:5432`.
+- **Comandos útiles:** `docker compose logs -f api worker` · `docker compose exec api pytest` · `docker compose down` (conserva los datos) · `docker compose down -v` (borra la BD).
+- **Editor:** el código se monta como volumen, así que lo que guardes se recarga solo. Si quieres autocompletado en VS Code, crea un venv local con Python 3.12 y `pip install -r requirements-dev.txt` (opcional).
+
+### Dependencias
+
+- `requirements.txt` (producción) y `requirements-dev.txt` (+ pytest, httpx), con versiones fijas probadas juntas con `pip check` sobre Python 3.12.
+- **Base de datos (acordadas por el equipo, no se cambian):** `sqlalchemy==2.0.54`, `geoalchemy2==0.20.0`, `alembic==1.20.0`, `psycopg2-binary==2.9.13`.
+- **Contraseñas con `bcrypt` directo, sin `passlib`**: passlib no se mantiene desde 2020 y falla con bcrypt 4.1+. bcrypt 5 rechaza contraseñas de más de 72 bytes, así que el schema de registro debe limitar el largo.
+- **JWT con `PyJWT`** en lugar de `python-jose` (sin mantenimiento activo). `JWT_SECRET` debe tener 32+ caracteres.
+- Solo se fijan dependencias directas; `greenlet` y demás transitivas las resuelve pip.
+- Para agregar una librería: fijarla con `==` en el requirements, `docker compose build`, y verificar con `docker compose exec api pip check`.
+
+### CI
+
+`.github/workflows/ci.yml` levanta PostGIS y Redis como servicios, instala dependencias, corre `pip check`, `alembic upgrade head` y `pytest`.
 
 ## Arquitectura de 4 capas
 
@@ -59,17 +101,22 @@ rescate360-be/
 │   │   └── beat_schedule.py
 │   └── utils/                      # geo (PostGIS), paginación
 ├── migrations/
-│   ├── env.py
-│   └── versions/                   # 0001 … 0015 (orden de ejecución)
+│   ├── env.py                      # Integra GeoAlchemy2 con --autogenerate
+│   ├── script.py.mako
+│   └── versions/                   # 0001 lista; las demás se crean al hacer cada tabla
 ├── tests/
 │   ├── unit/                       # services, jobs, middlewares
 │   └── integration/                # test_<modulo>_api.py
 ├── scripts/seed/                   # Datos de prueba
-├── docker/                         # Postgres+PostGIS, Redis, API, worker
+├── docker/pgadmin/                 # servers.json: pgAdmin ya conectado a la BD
 ├── docs/legal/                     # Política de datos, términos y condiciones
 ├── .github/workflows/              # CI/CD
 ├── .env.example
-└── requirements.txt
+├── alembic.ini
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ## Módulos
@@ -111,6 +158,12 @@ Todos los jobs deben ser **idempotentes**. La IA **nunca decide sola**: `priorid
 ## Migraciones (orden)
 
 `0001_habilitar_postgis` → `0002_crear_usuarios` → `0003_crear_contactos_emergencia` → `0004_crear_reportes` → `0005_crear_personas_desaparecidas` → `0006_crear_solicitudes_ayuda` → `0007_crear_centros_ayuda` → `0008_crear_alertas` → `0009_crear_zonas_peligrosas` → `0010_crear_donaciones` → `0011_crear_guia_emergencia` → `0012_crear_cola_alertas_offline` → `0013_indices_busqueda` → `0014_crear_auditoria` → `0015_crear_consentimientos` → `0016_crear_organizaciones`
+
+Solo existe `0001`. Cada una de las demás se crea cuando se implemente su tabla, con su número fijo:
+
+```bash
+docker compose exec api alembic revision --autogenerate -m "crear usuarios" --rev-id 0002
+```
 
 Las migraciones 0014 y 0015 **no están en el modelo de datos original**. Se agregaron por el marco legal: trazabilidad de quién verificó o modificó qué, y registro de la autorización de tratamiento de datos (Ley 1581 de 2012).
 

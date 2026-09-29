@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: rescate
+          POSTGRES_PASSWORD: rescate
+          POSTGRES_DB: rescate360
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rescate -d rescate360"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg2://rescate:rescate@localhost:5432/rescate360
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-secret
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      # Detecta dependencias incompatibles antes de correr nada
+      - run: pip check
+      - run: alembic upgrade head
+      - run: pytest -q

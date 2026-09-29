@@ -1,0 +1,99 @@
+# Ambiente local de RESCATE360.
+#   docker compose up -d --build        levanta todo
+#   docker compose exec api alembic upgrade head
+#   docker compose logs -f api worker
+#
+# Contenedores:  rescate360-db · rescate360-redis · rescate360-api · rescate360-worker
+#                rescate360-beat · rescate360-pgadmin
+name: rescate360
+
+x-backend: &backend
+  build:
+    context: .
+    args:
+      INSTALL_DEV: "true"
+  image: rescate360-api:dev
+  env_file: .env
+  volumes:
+    - .:/app
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    # PostGIS, no postgres a secas: la migración 0001 necesita la extensión postgis.
+    image: postgis/postgis:16-3.4
+    container_name: rescate360-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${DB_PORT:-5435}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: rescate360-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *backend
+    container_name: rescate360-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  worker:
+    <<: *backend
+    container_name: rescate360-worker
+    command: celery -A app.core.celery_app:celery_app worker --loglevel=info
+
+  beat:
+    <<: *backend
+    container_name: rescate360-beat
+    command: celery -A app.core.celery_app:celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+
+  pgadmin:
+    # Interfaz web para ver las tablas y el diagrama ER: http://localhost:5050
+    # Modo escritorio (sin login) porque es solo para desarrollo local.
+    image: dpage/pgadmin4:9
+    container_name: rescate360-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
+    name: rescate360_db_data
+  redis_data:
+    name: rescate360_redis_data
+  pgadmin_data:
+    name: rescate360_pgadmin_data
