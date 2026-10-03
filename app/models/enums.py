@@ -1,42 +1,81 @@
-"""Enums del dominio, compartidos entre varios modelos.
+import enum
 
-Cada enum se persiste en PostgreSQL como un tipo nativo (`native_enum`), con el
-nombre del enum en la migración. Los valores son en minúsculas y en español:
-son los mismos que viajan en la API y en el JWT, así que la base debe hablar el
-mismo idioma que el cliente.
-"""
-
-from enum import StrEnum
-from typing import TypeVar
-
-from sqlalchemy import Enum as SAEnum
-
-E = TypeVar("E", bound=StrEnum)
+from sqlalchemy import Enum as SQLAlchemyEnum
 
 
-def pg_enum(enum_class: type[E], name: str) -> SAEnum:
-    """Tipo de columna para un enum, persistiendo el valor y no el nombre del miembro.
-
-    Sin `values_callable`, SQLAlchemy guardaría `SUPER_ADMIN` (el nombre del
-    miembro) en lugar de `super_admin` (su valor).
-    """
-    return SAEnum(
-        enum_class,
-        name=name,
-        values_callable=lambda cls: [miembro.value for miembro in cls],
-        validate_strings=True,
+def pg_enum(enum_cls: type[enum.Enum], pg_name: str) -> SQLAlchemyEnum:
+    return SQLAlchemyEnum(
+        enum_cls, name=pg_name,
+        values_callable=lambda e: [member.value for member in e],
     )
 
 
-class RolUsuario(StrEnum):
-    """Rol del usuario. Solo `super_admin` puede no tener organización."""
-
+class RolUsuario(str, enum.Enum):
     CIUDADANO = "ciudadano"
     VOLUNTARIO = "voluntario"
     ADMINISTRADOR = "administrador"
     SUPER_ADMIN = "super_admin"
 
-    @property
-    def es_privilegiado(self) -> bool:
-        """Roles con permisos de gestión dentro de una organización."""
-        return self in (RolUsuario.VOLUNTARIO, RolUsuario.ADMINISTRADOR, RolUsuario.SUPER_ADMIN)
+
+class TipoOrganizacion(str, enum.Enum):
+    BOMBEROS = "bomberos"
+    POLICIA = "policia"
+    CRUZ_ROJA = "cruz_roja"
+    DEFENSA_CIVIL = "defensa_civil"
+    ONG = "ong"
+    OTRO = "otro"
+
+
+class EstadoReporte(str, enum.Enum):
+    PENDIENTE = "pendiente"
+    VERIFICADO = "verificado"
+    RECHAZADO = "rechazado"
+    DUPLICADO = "duplicado"
+    NO_VERIFICABLE = "no_verificable"
+
+
+class EstadoCasoPersona(str, enum.Enum):
+    BUSCANDO = "buscando"
+    ENCONTRADO = "encontrado"
+
+
+class OrigenSolicitud(str, enum.Enum):
+    MANUAL = "manual"
+    ACELEROMETRO = "acelerometro"
+
+
+class PrioridadSolicitud(str, enum.Enum):
+    PENDIENTE = "pendiente"
+    BAJA = "baja"
+    MEDIA = "media"
+    ALTA = "alta"
+    CRITICA = "critica"
+
+
+class EstadoSolicitud(str, enum.Enum):
+    PENDIENTE = "pendiente"
+    EN_ATENCION = "en_atencion"
+    RESUELTA = "resuelta"
+
+
+class EstadoZona(str, enum.Enum):
+    ACTIVA = "activa"
+    RESUELTA = "resuelta"
+
+
+class MetodoEnvio(str, enum.Enum):
+    SMS = "sms"
+    MESH = "mesh"
+    LOCAL = "local"
+
+
+class OperacionAuditoria(str, enum.Enum):
+    INSERT = "INSERT"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+
+
+class EstadoAsignacion(str, enum.Enum):
+    ACTIVA = "activa"
+    FINALIZADA = "finalizada"
+    CANCELADA = "cancelada"
