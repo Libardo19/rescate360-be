@@ -27,6 +27,7 @@ def upgrade() -> None:
     sa.Column('categoria', sa.String(length=25), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_geospatial_table('organizaciones',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('nombre', sa.String(length=100), nullable=False),
@@ -37,6 +38,7 @@ def upgrade() -> None:
     sa.Column('creado_en', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_geospatial_table('usuarios',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('nombre', sa.String(length=50), nullable=False),
@@ -54,6 +56,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
     )
+
     op.create_geospatial_table('alertas',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('tipo', sa.String(length=30), nullable=False),
@@ -64,6 +67,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['creado_por'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_table('auditoria',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('tabla', sa.String(length=100), nullable=False),
@@ -80,6 +84,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_auditoria_registro_id'), 'auditoria', ['registro_id'], unique=False)
     op.create_index(op.f('ix_auditoria_tabla'), 'auditoria', ['tabla'], unique=False)
     op.create_index(op.f('ix_auditoria_usuario_id'), 'auditoria', ['usuario_id'], unique=False)
+    
     op.create_geospatial_table('centros_ayuda',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('nombre', sa.String(length=30), nullable=False),
@@ -90,6 +95,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['gestionado_por'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_geospatial_table('cola_alertas_offline',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('uuid_origen', sa.UUID(), nullable=False),
@@ -104,6 +110,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('uuid_origen')
     )
+
     op.create_table('contactos_emergencia',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('usuario_id', sa.UUID(), nullable=False),
@@ -113,6 +120,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['usuario_id'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_geospatial_table('personas_desaparecidas',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('reportado_por', sa.UUID(), nullable=False),
@@ -125,6 +133,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['reportado_por'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_geospatial_table('reportes',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('usuario_id', sa.UUID(), nullable=False),
@@ -142,6 +151,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['verificado_por'], ['usuarios.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+
     op.create_geospatial_table('solicitudes_ayuda',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('usuario_id', sa.UUID(), nullable=False),
@@ -219,4 +229,19 @@ def downgrade() -> None:
     op.drop_geospatial_table('usuarios')
     op.drop_geospatial_table('organizaciones')
     op.drop_table('guia_emergencia')
+
+    sa.Enum(name="rol_usuario").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="tipo_organizacion").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="operacion_auditoria").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="estado_asignacion").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="estado_zona").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="estado_solicitud").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="prioridad_solicitud").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="estado_reporte").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="estado_caso_persona").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="metodo_envio").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="origen_solicitud").drop(op.get_bind(), checkfirst=True)
+    
+
+    
     # ### end Alembic commands ###

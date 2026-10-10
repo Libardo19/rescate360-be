@@ -38,5 +38,5 @@ __all__ = [
     "ColaAlertaOffline",
     "Auditoria",
     "Asignacion",
-    "PerfilVoluntario",
+    #"PerfilVoluntario",
 ]
