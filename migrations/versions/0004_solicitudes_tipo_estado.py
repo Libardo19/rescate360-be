@@ -41,12 +41,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Revertir la columna tipo
+    # Revertir la columna tipo (drop_column ya se lleva su propio default)
     op.drop_column("solicitudes_ayuda", "tipo")
     op.execute("DROP TYPE IF EXISTS tipo_solicitud")
 
-    # Revertir origen_solicitud (Postgres no permite quitar un valor de un
-    # ENUM directamente: se recrea el tipo sin 'sos')
+    # --- origen_solicitud: quitar default antes de cambiar el tipo ---
+    op.execute("ALTER TABLE solicitudes_ayuda ALTER COLUMN origen DROP DEFAULT")
     op.execute("ALTER TYPE origen_solicitud RENAME TO origen_solicitud_old")
     op.execute("CREATE TYPE origen_solicitud AS ENUM ('manual', 'acelerometro')")
     op.execute(
@@ -54,9 +54,11 @@ def downgrade() -> None:
         "ALTER COLUMN origen TYPE origen_solicitud "
         "USING origen::text::origen_solicitud"
     )
+    op.execute("ALTER TABLE solicitudes_ayuda ALTER COLUMN origen SET DEFAULT 'manual'")
     op.execute("DROP TYPE origen_solicitud_old")
 
-    # Revertir estado_solicitud (mismo truco: recrear el tipo viejo)
+    # --- estado_solicitud: mismo truco ---
+    op.execute("ALTER TABLE solicitudes_ayuda ALTER COLUMN estado DROP DEFAULT")
     op.execute("ALTER TYPE estado_solicitud RENAME TO estado_solicitud_old")
     op.execute("CREATE TYPE estado_solicitud AS ENUM ('pendiente', 'en_atencion', 'resuelta')")
     op.execute(
@@ -64,4 +66,5 @@ def downgrade() -> None:
         "ALTER COLUMN estado TYPE estado_solicitud "
         "USING estado::text::estado_solicitud"
     )
+    op.execute("ALTER TABLE solicitudes_ayuda ALTER COLUMN estado SET DEFAULT 'pendiente'")
     op.execute("DROP TYPE estado_solicitud_old")
