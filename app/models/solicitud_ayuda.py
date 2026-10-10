@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, pg_enum
+from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud, pg_enum
 
 
 class SolicitudAyuda(Base):
@@ -18,6 +18,12 @@ class SolicitudAyuda(Base):
     )
     usuario_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
     descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+    tipo: Mapped[TipoSolicitud] = mapped_column(
+        pg_enum(TipoSolicitud, "tipo_solicitud"),
+        nullable=False,
+        default=TipoSolicitud.OTRO,
+        server_default=TipoSolicitud.OTRO.value,
+    )
     ubicacion: Mapped[Geometry] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )
