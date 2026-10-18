@@ -1,12 +1,32 @@
 import redis
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.database import engine
+from app.core.logging import RequestIdMiddleware, configurar_logging
+from app.middlewares.error_handler_middleware import registrar_manejadores_errores
+from app.routes import auth_routes
+
+configurar_logging()
 
 app = FastAPI(title="RESCATE360 API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
+)
+app.add_middleware(RequestIdMiddleware)
+registrar_manejadores_errores(app)
+
+# Routers: cada dueño agrega su línea (archivo compartido, solo agregar).
+app.include_router(auth_routes.router)
 
 
 @app.get("/health", tags=["health"])
