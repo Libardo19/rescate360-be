@@ -15,7 +15,8 @@ class ContactoEmergencia(Base):
     )
     usuario_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
     nombre: Mapped[str] = mapped_column(String(50), nullable=False)
-    telefono: Mapped[str] = mapped_column(String(10), nullable=False)
+    # Formato E.164: +573001234567 (lo exige Twilio para el SMS del SOS)
+    telefono: Mapped[str] = mapped_column(String(15), nullable=False)
     parentesco: Mapped[str | None] = mapped_column(String(15), nullable=True)
 
     def __repr__(self) -> str:
