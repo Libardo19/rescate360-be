@@ -30,7 +30,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg2://rescate:rescate@localhost:5432/rescate360
       REDIS_URL: redis://localhost:6379/0
-      JWT_SECRET: ci-secret
+      JWT_SECRET: ci-secret-de-pruebas-con-32-caracteres-o-mas
 
     steps:
       - uses: actions/checkout@v4

@@ -90,3 +90,24 @@ class EstadoAsignacion(str, enum.Enum):
     ACTIVA = "activa"
     FINALIZADA = "finalizada"
     CANCELADA = "cancelada"
+
+
+# --- Dev A: usuarios, consentimientos y dispositivos (migración 0005) ---
+
+
+class EstadoUsuario(str, enum.Enum):
+    ACTIVO = "activo"
+    EN_ESPERA = "en_espera"
+    BLOQUEADO = "bloqueado"
+
+
+class TipoConsentimiento(str, enum.Enum):
+    TRATAMIENTO_DATOS = "tratamiento_datos"
+    UBICACION = "ubicacion"
+    FOTO_PERSONA = "foto_persona"
+
+
+class PlataformaDispositivo(str, enum.Enum):
+    ANDROID = "android"
+    IOS = "ios"
+    WEB = "web"

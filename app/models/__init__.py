@@ -20,6 +20,8 @@ from app.models.guia_emergencia import GuiaEmergencia
 from app.models.cola_alerta_offline import ColaAlertaOffline
 from app.models.auditoria import Auditoria
 from app.models.asignacion import Asignacion
+from app.models.consentimiento import Consentimiento
+from app.models.dispositivo import Dispositivo
 #from app.models.perfil_voluntario import PerfilVoluntario
 
 
@@ -38,5 +40,7 @@ __all__ = [
     "ColaAlertaOffline",
     "Auditoria",
     "Asignacion",
+    "Consentimiento",
+    "Dispositivo",
     #"PerfilVoluntario",
 ]

@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     retencion_fotos_dias: int = 90
     retencion_ubicaciones_dias: int = 30
 
+    # Orígenes que pueden llamar la API desde el navegador (panel web de administración).
+    # En .env como JSON: CORS_ORIGINS=["http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+    # Versión de la política de tratamiento de datos que acepta el usuario al registrarse
+    version_politica_datos: str = "1.0"
+
 
 @lru_cache
 def get_settings() -> Settings:
