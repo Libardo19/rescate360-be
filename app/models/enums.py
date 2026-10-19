@@ -42,6 +42,7 @@ class EstadoCasoPersona(str, enum.Enum):
 class OrigenSolicitud(str, enum.Enum):
     MANUAL = "manual"
     ACELEROMETRO = "acelerometro"
+    SOS = "sos"
 
 
 class PrioridadSolicitud(str, enum.Enum):
@@ -54,8 +55,18 @@ class PrioridadSolicitud(str, enum.Enum):
 
 class EstadoSolicitud(str, enum.Enum):
     PENDIENTE = "pendiente"
-    EN_ATENCION = "en_atencion"
-    RESUELTA = "resuelta"
+    EN_PROCESO = "en_proceso"
+    ATENDIDA = "atendida"
+    CANCELADA = "cancelada"
+
+
+class TipoSolicitud(str, enum.Enum):
+    MEDICA = "medica"
+    ALIMENTARIA = "alimentaria"
+    REFUGIO = "refugio"
+    RESCATE = "rescate"
+    ROPA = "ropa"
+    OTRO = "otro"
 
 
 class EstadoZona(str, enum.Enum):
