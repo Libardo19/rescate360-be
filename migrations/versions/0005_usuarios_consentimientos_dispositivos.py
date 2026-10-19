@@ -2,12 +2,11 @@
 y corrección de fn_auditoria()
 
 Revision ID: 0005
-Revises: 0003
+Revises: 0004
 Create Date: 2026-10-16
 
-Dev A. Va después de la 0003 porque la 0004 de Dev B todavía no está en develop:
-cuando entre, esta migración pasa a `down_revision = "0004"` (regla del plan:
-el segundo en mergear ajusta).
+Dev A. Va después de la 0004 (la 0004 de Dev B entró a develop primero y esta
+migración se ajustó, regla del plan: el segundo en mergear ajusta).
 
 Escrita a mano (sin --autogenerate) porque los modelos de centros, alertas, zonas
 y donaciones todavía no declaran lo que creó la 0003, y el autogenerate propondría
@@ -20,7 +19,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0005"
-down_revision: str | None = "0003"
+down_revision: str | None = "0004"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
