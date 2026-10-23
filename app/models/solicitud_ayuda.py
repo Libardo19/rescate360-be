@@ -24,7 +24,7 @@ class SolicitudAyuda(Base):
         default=TipoSolicitud.OTRO,
         server_default=TipoSolicitud.OTRO.value,
     )
-    direccion: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    direccion: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ubicacion: Mapped[Geometry] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )
