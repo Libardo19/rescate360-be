@@ -1,9 +1,10 @@
 from uuid import UUID
 
+from geoalchemy2.elements import WKTElement
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoSolicitud, PrioridadSolicitud, TipoSolicitud
+from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.utils.paginacion import Paginacion
 
@@ -16,7 +17,7 @@ def crear(db: Session, *,
     usuario_id: UUID,
     descripcion: str,
     tipo: TipoSolicitud,
-    ubicacion,
+    ubicacion: WKTElement,
     origen: OrigenSolicitud,
     prioridad_ia: PrioridadSolicitud,
     direccion: str | None = None,
