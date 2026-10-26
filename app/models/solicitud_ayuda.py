@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, Float, ForeignKey, Text, func, text
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,6 +24,7 @@ class SolicitudAyuda(Base):
         default=TipoSolicitud.OTRO,
         server_default=TipoSolicitud.OTRO.value,
     )
+    direccion: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ubicacion: Mapped[Geometry] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
     )

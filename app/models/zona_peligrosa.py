@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, ForeignKey, String, func, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +12,10 @@ from app.models.enums import EstadoZona, pg_enum
 
 class ZonaPeligrosa(Base):
     __tablename__ = "zonas_peligrosas"
+    __table_args__ = (
+        # Creado en la migración 0003 (confirma el nombre con el grep)
+        Index("ix_zonas_peligrosas_organizacion_id", "organizacion_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
@@ -27,6 +31,9 @@ class ZonaPeligrosa(Base):
     gestionado_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    organizacion_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizaciones.id"), nullable=True
     )
 
     def __repr__(self) -> str:
