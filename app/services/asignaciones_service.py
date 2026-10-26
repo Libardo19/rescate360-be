@@ -1,11 +1,12 @@
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.excepciones import Conflicto, NoEncontrado, SinPermiso
 from app.middlewares.role_middleware import verificar_misma_organizacion
 from app.models.asignacion import Asignacion
-from app.models.enums import EstadoAsignacion, EstadoSolicitud
+from app.models.enums import EstadoAsignacion, EstadoReporte, EstadoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
 from app.repositories import asignaciones_repository as repo
@@ -49,13 +50,17 @@ def tomar_solicitud(db: Session, usuario: Usuario, solicitud_id: UUID) -> Asigna
     if repo.obtener_activa(db, usuario.id, solicitud_id=solicitud.id) is not None:
         raise Conflicto("Ya tienes esta solicitud asignada", codigo="ASIGNACION_DUPLICADA")
 
-    asignacion = repo.crear(db, voluntario_id=usuario.id, solicitud_id=solicitud.id)
-    if solicitud.estado == EstadoSolicitud.PENDIENTE:
-        solicitudes_repo.actualizar_estado(
-            db, solicitud, estado=EstadoSolicitud.EN_PROCESO, modificado_por=usuario.id
-        )
-    db.commit()
-    return asignacion
+    try:
+        asignacion = repo.crear(db, voluntario_id=usuario.id, solicitud_id=solicitud.id)
+        if solicitud.estado == EstadoSolicitud.PENDIENTE:
+            solicitudes_repo.actualizar_estado(
+                db, solicitud, estado=EstadoSolicitud.EN_PROCESO, modificado_por=usuario.id
+            )
+        db.commit()
+        return asignacion
+    except IntegrityError:
+        db.rollback()
+        raise Conflicto("Ya tienes esta solicitud asignada", codigo="ASIGNACION_DUPLICADA") from None
 
 
 def tomar_reporte(db: Session, usuario: Usuario, reporte_id: UUID) -> Asignacion:
@@ -65,12 +70,19 @@ def tomar_reporte(db: Session, usuario: Usuario, reporte_id: UUID) -> Asignacion
 
     verificar_misma_organizacion(usuario, reporte.organizacion_objetivo_id)
 
+    if reporte.estado in (EstadoReporte.RECHAZADO, EstadoReporte.DUPLICADO, EstadoReporte.NO_VERIFICABLE):
+        raise Conflicto("No se puede asignar un reporte en este estado", codigo="REPORTE_NO_ASIGNABLE")
+
     if repo.obtener_activa(db, usuario.id, reporte_id=reporte.id) is not None:
         raise Conflicto("Ya tienes este reporte asignado", codigo="ASIGNACION_DUPLICADA")
 
-    asignacion = repo.crear(db, voluntario_id=usuario.id, reporte_id=reporte.id)
-    db.commit()
-    return asignacion
+    try:
+        asignacion = repo.crear(db, voluntario_id=usuario.id, reporte_id=reporte.id)
+        db.commit()
+        return asignacion
+    except IntegrityError:
+        db.rollback()
+        raise Conflicto("Ya tienes este reporte asignado", codigo="ASIGNACION_DUPLICADA") from None
 
 
 def listar_mias(
@@ -97,16 +109,28 @@ def actualizar_estado(
     if asignacion.voluntario_id != usuario.id:
         raise SinPermiso("Esta asignación no es tuya", codigo="ASIGNACION_AJENA")
 
-    solicitud = None
-    if asignacion.solicitud_id is not None:
-        solicitud = repo.bloquear_solicitud(db, asignacion.solicitud_id)
-        db.refresh(asignacion)  
-
     if asignacion.estado_asignacion != EstadoAsignacion.ACTIVA:
         raise Conflicto("La asignación ya está cerrada", codigo="TRANSICION_NO_PERMITIDA")
 
-    asignacion = repo.actualizar_estado(db, asignacion, estado=datos.estado)
-    if solicitud is not None:
+    if asignacion.solicitud_id is not None:
+        solicitud = repo.bloquear_solicitud(db, asignacion.solicitud_id)
+        if solicitud is None:
+            raise NoEncontrado("La solicitud asociada no existe", codigo="SOLICITUD_NO_ENCONTRADA")
+        verificar_misma_organizacion(usuario, solicitudes_service.organizacion_efectiva(solicitud))
+        asignacion = repo.actualizar_estado(db, asignacion, estado=datos.estado)
         _sincronizar_solicitud(db, usuario, solicitud, datos.estado)
+        db.commit()
+        return asignacion
+
+    if asignacion.reporte_id is not None:
+        reporte = repo.bloquear_reporte(db, asignacion.reporte_id)
+        if reporte is None:
+            raise NoEncontrado("El reporte asociado no existe", codigo="REPORTE_NO_ENCONTRADO")
+        verificar_misma_organizacion(usuario, reporte.organizacion_objetivo_id)
+        asignacion = repo.actualizar_estado(db, asignacion, estado=datos.estado)
+        db.commit()
+        return asignacion
+
+    asignacion = repo.actualizar_estado(db, asignacion, estado=datos.estado)
     db.commit()
     return asignacion

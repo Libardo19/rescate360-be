@@ -63,7 +63,7 @@ def _estado_solicitud(db, solicitud_id: str) -> EstadoSolicitud:
 
 def _crear_reporte(db, usuario_id, organizacion_id) -> Reporte:
     # Primer valor del enum de tipo, para no depender del nombre del enum
-    tipo = Reporte.__table__.c.tipo.type.enums[0]
+    tipo = "Derrumbe"
     reporte = Reporte(
         usuario_id=usuario_id,
         tipo=tipo,
