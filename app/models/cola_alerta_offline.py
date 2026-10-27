@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +12,10 @@ from app.models.enums import MetodoEnvio, pg_enum
 
 class ColaAlertaOffline(Base):
     __tablename__ = "cola_alertas_offline"
+    __table_args__ = (
+        # Creados en la migración 0003
+        Index("ix_cola_alertas_offline_ubicacion", "ubicacion", postgresql_using="gist"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")

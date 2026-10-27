@@ -1,7 +1,7 @@
 """asignaciones unicas y validaciones
 
 Revision ID: 0007
-Revises: 0006_solicitudes_direccion
+Revises: 0006
 Create Date: 2026-10-26 18:00:00.000000
 
 """

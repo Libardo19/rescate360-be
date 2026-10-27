@@ -13,6 +13,7 @@ class CentroAyuda(Base):
     __table_args__ = (
         # Creado en la migración 0003
         Index("ix_centros_ayuda_organizacion_id", "organizacion_id"),
+        Index("ix_centros_ayuda_ubicacion", "ubicacion", postgresql_using="gist"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

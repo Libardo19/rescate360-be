@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, DateTime, String, func, text
+from sqlalchemy import Boolean, DateTime, Index, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,10 @@ from app.models.enums import TipoOrganizacion, pg_enum
 
 class Organizacion(Base):
     __tablename__ = "organizaciones"
+    __table_args__ = (
+        # Creados en la migración 0003
+        Index("ix_organizaciones_zona_cobertura", "zona_cobertura", postgresql_using="gist"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
