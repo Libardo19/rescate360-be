@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.excepciones import NoEncontrado, SinPermiso
+from app.jobs.eventos import clasificar_prioridad_ia
 from app.middlewares.role_middleware import alcance_organizacion, solo_propio, verificar_misma_organizacion
 from app.models.enums import OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
@@ -55,8 +56,10 @@ def crear_solicitud(db: Session, usuario: Usuario, datos: SolicitudAyudaIn) -> S
         prioridad_ia=PrioridadSolicitud.PENDIENTE,
     )
     db.commit()
-    # TODO (IA, B2 del plan): aquí, DESPUÉS del commit para que el job vea la fila:
-    #     clasificar_prioridad_ia.delay(str(solicitud.id))
+    try:
+        clasificar_prioridad_ia.clasificar_prioridad_ia.delay(str(solicitud.id))
+    except Exception:
+        pass
     return solicitud
 
 

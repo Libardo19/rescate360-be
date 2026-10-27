@@ -87,3 +87,31 @@ def actualizar_estado(
     db.flush()
     db.refresh(solicitud)
     return solicitud
+
+
+def obtener_para_clasificar(db: Session, solicitud_id: UUID) -> SolicitudAyuda | None:
+    consulta = (
+        select(SolicitudAyuda)
+        .where(SolicitudAyuda.id == solicitud_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return db.scalars(consulta).one_or_none()
+
+
+def aplicar_clasificacion_ia(
+    db: Session,
+    solicitud: SolicitudAyuda,
+    *,
+    prioridad_ia: PrioridadSolicitud,
+    organizacion_objetivo_id: UUID | None,
+    confianza_ia: float | None,
+    razonamiento_ia: str | None,
+) -> SolicitudAyuda:
+    solicitud.prioridad_ia = prioridad_ia
+    solicitud.organizacion_objetivo_id = organizacion_objetivo_id
+    solicitud.confianza_ia = confianza_ia
+    solicitud.razonamiento_ia = razonamiento_ia
+    db.flush()
+    db.refresh(solicitud)
+    return solicitud
