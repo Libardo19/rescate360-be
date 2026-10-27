@@ -14,7 +14,14 @@ from app.core.database import get_db
 from app.middlewares.auth_middleware import get_current_user
 from app.models.enums import EstadoReporte
 from app.models.usuario import Usuario
-from app.schemas.reportes_schema import ReporteIn, ReporteOut, TipoReporteOut
+from app.schemas.reportes_schema import (
+    DuplicadoIn,
+    RechazoIn,
+    ReporteIn,
+    ReporteOrganizacionIn,
+    ReporteOut,
+    TipoReporteOut,
+)
 from app.services import reportes_service
 from app.utils.paginacion import Pagina, Paginacion, paginacion
 
@@ -71,3 +78,37 @@ def obtener_reporte(
     db: Session = Depends(get_db),
 ) -> ReporteOut:
     return reportes_service.a_salida(usuario, reportes_service.obtener(db, usuario, reporte_id))
+
+
+def verificar_reporte(
+    reporte_id: UUID, usuario: Usuario = Depends(get_current_user), db: Session = Depends(get_db)
+) -> ReporteOut:
+    return reportes_service.a_salida(usuario, reportes_service.verificar(db, usuario, reporte_id))
+
+
+def rechazar_reporte(
+    reporte_id: UUID,
+    datos: RechazoIn | None = None,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReporteOut:
+    reporte = reportes_service.rechazar(db, usuario, reporte_id, datos or RechazoIn())
+    return reportes_service.a_salida(usuario, reporte)
+
+
+def marcar_duplicado(
+    reporte_id: UUID,
+    datos: DuplicadoIn,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReporteOut:
+    return reportes_service.a_salida(usuario, reportes_service.marcar_duplicado(db, usuario, reporte_id, datos))
+
+
+def asignar_organizacion(
+    reporte_id: UUID,
+    datos: ReporteOrganizacionIn,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReporteOut:
+    return reportes_service.a_salida(usuario, reportes_service.asignar_organizacion(db, usuario, reporte_id, datos))

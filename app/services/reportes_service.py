@@ -6,18 +6,31 @@ Reglas de acceso:
   efectiva (la manual prevalece sobre la de la IA); el super admin, todos.
 - El detalle lo ven el autor, su organización y el super admin. Un reporte VERIFICADO es
   información pública (sale en el mapa): lo ve cualquiera, pero sin saber quién lo hizo.
+
+Verificación (administrador de la organización efectiva o super admin):
+- Solo desde `pendiente`: verificar, rechazar (con motivo opcional) o marcar como duplicado
+  de otro reporte. Al rechazar o marcar duplicado se cancelan las asignaciones activas.
+- El super admin enruta a mano a una organización (`organizacion_manual_id`) mientras no
+  haya IA; no se mueve un reporte cerrado ni uno que ya tomó un voluntario.
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.excepciones import DatosInvalidos, NoEncontrado, SinPermiso
+from app.core.excepciones import Conflicto, DatosInvalidos, NoEncontrado, SinPermiso
 from app.integrations import storage_client
-from app.middlewares.role_middleware import alcance_organizacion, es_super_admin, solo_propio
+from app.middlewares.role_middleware import (
+    alcance_organizacion,
+    es_super_admin,
+    solo_propio,
+    verificar_misma_organizacion,
+)
 from app.models.enums import EstadoReporte
 from app.models.reporte import Reporte
 from app.models.usuario import Usuario
+from app.repositories import asignaciones_repository, organizaciones_repository
 from app.repositories import reportes_repository as repo
 from app.schemas.reportes_schema import (
     FILTRO_OTROS,
@@ -27,6 +40,9 @@ from app.schemas.reportes_schema import (
     ReportanteOut,
     ReporteIn,
     ReporteOut,
+    DuplicadoIn,
+    RechazoIn,
+    ReporteOrganizacionIn,
     TipoReporteOut,
     etiqueta_tipo,
     normalizar_tipo,
@@ -35,6 +51,7 @@ from app.utils.geo import punto_desde_latlng
 from app.utils.paginacion import Paginacion
 
 CARPETA_EVIDENCIAS = "reportes"
+ESTADOS_CERRADOS = (EstadoReporte.RECHAZADO, EstadoReporte.DUPLICADO, EstadoReporte.NO_VERIFICABLE)
 
 
 def organizacion_efectiva(reporte: Reporte) -> UUID | None:
@@ -155,4 +172,74 @@ def obtener(db: Session, usuario: Usuario, reporte_id: UUID) -> Reporte:
         raise NoEncontrado("El reporte no existe", codigo="REPORTE_NO_ENCONTRADO")
     if not es_propio(usuario, reporte) and reporte.estado != EstadoReporte.VERIFICADO:
         raise SinPermiso("No tienes acceso a este reporte", codigo="REPORTE_FUERA_DE_ALCANCE")
+    return reporte
+
+
+# --- verificación ---
+
+
+def _bloquear(db: Session, reporte_id: UUID) -> Reporte:
+    reporte = asignaciones_repository.bloquear_reporte(db, reporte_id)
+    if reporte is None:
+        raise NoEncontrado("El reporte no existe", codigo="REPORTE_NO_ENCONTRADO")
+    return reporte
+
+
+def _para_revisar(db: Session, usuario: Usuario, reporte_id: UUID) -> Reporte:
+    reporte = _bloquear(db, reporte_id)
+    verificar_misma_organizacion(usuario, organizacion_efectiva(reporte))
+    if reporte.estado != EstadoReporte.PENDIENTE:
+        raise Conflicto("Solo se revisa un reporte pendiente", codigo="TRANSICION_NO_PERMITIDA")
+    return reporte
+
+
+def _cerrar(db: Session, usuario: Usuario, reporte: Reporte, estado: EstadoReporte, **campos) -> Reporte:
+    if estado != EstadoReporte.VERIFICADO:
+        asignaciones_repository.cancelar_activas_de_reporte(db, reporte.id)
+    reporte = repo.actualizar(
+        db, reporte, estado=estado, verificado_por=usuario.id, verificado_en=datetime.now(UTC), **campos
+    )
+    db.commit()
+    return reporte
+
+
+def verificar(db: Session, usuario: Usuario, reporte_id: UUID) -> Reporte:
+    return _cerrar(db, usuario, _para_revisar(db, usuario, reporte_id), EstadoReporte.VERIFICADO)
+
+
+def rechazar(db: Session, usuario: Usuario, reporte_id: UUID, datos: RechazoIn) -> Reporte:
+    reporte = _para_revisar(db, usuario, reporte_id)
+    return _cerrar(db, usuario, reporte, EstadoReporte.RECHAZADO, motivo_rechazo=datos.motivo or None)
+
+
+def marcar_duplicado(db: Session, usuario: Usuario, reporte_id: UUID, datos: DuplicadoIn) -> Reporte:
+    reporte = _para_revisar(db, usuario, reporte_id)
+    if datos.duplicado_de_id == reporte.id:
+        raise DatosInvalidos("Un reporte no puede ser duplicado de sí mismo", codigo="DUPLICADO_DE_SI_MISMO")
+    original = repo.obtener_por_id(db, datos.duplicado_de_id)
+    if original is None:
+        raise NoEncontrado("El reporte original no existe", codigo="REPORTE_ORIGINAL_NO_ENCONTRADO")
+    # Si el "original" también era un duplicado, se apunta al primero de la cadena
+    if original.estado == EstadoReporte.DUPLICADO and original.duplicado_de_id is not None:
+        original = repo.obtener_por_id(db, original.duplicado_de_id) or original
+    return _cerrar(db, usuario, reporte, EstadoReporte.DUPLICADO, duplicado_de_id=original.id)
+
+
+def asignar_organizacion(db: Session, usuario: Usuario, reporte_id: UUID, datos: ReporteOrganizacionIn) -> Reporte:
+    """Solo super_admin (se exige en la ruta)."""
+    reporte = _bloquear(db, reporte_id)
+    organizacion = organizaciones_repository.obtener_por_id(db, datos.organizacion_id)
+    if organizacion is None:
+        raise NoEncontrado("La organización no existe", codigo="ORGANIZACION_NO_ENCONTRADA")
+    if not organizacion.activa:
+        raise Conflicto("La organización está desactivada", codigo="ORGANIZACION_INACTIVA")
+    if reporte.estado in ESTADOS_CERRADOS:
+        raise Conflicto("El reporte ya está cerrado", codigo="REPORTE_CERRADO")
+    if asignaciones_repository.contar_activas_de_reporte(db, reporte.id) > 0:
+        raise Conflicto(
+            "El reporte tiene voluntarios asignados; deben cancelar su asignación antes de moverlo",
+            codigo="REPORTE_CON_ASIGNACIONES",
+        )
+    reporte = repo.actualizar(db, reporte, organizacion_manual_id=organizacion.id)
+    db.commit()
     return reporte

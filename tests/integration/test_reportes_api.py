@@ -162,3 +162,125 @@ def test_reporte_inexistente(cliente, crear_usuario, headers_de):
 
 def test_reportar_exige_sesion(cliente):
     assert cliente.post("/reportes", data=CAMPOS).status_code == 401
+
+
+# --- verificación ---
+
+
+def _caso(cliente, db, crear_usuario, headers_de):
+    """Un admin y un reporte pendiente ya enrutado a su organización."""
+    admin = crear_usuario(A)
+    reporte = _creado(cliente, headers_de(crear_usuario(C)))
+    _enrutar(db, reporte["id"], admin.organizacion_id)
+    return admin, reporte
+
+
+def test_admin_verifica_y_el_reporte_queda_publico(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    r = cliente.patch(f"/reportes/{reporte['id']}/verificar", headers=headers_de(admin))
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["estado"] == "verificado"
+    assert cuerpo["verificado_por"] == str(admin.id) and cuerpo["verificado_en"]
+    # Ya sale en el mapa de cualquier ciudadano
+    mapa = cliente.get("/mapa", params={"capas": "reportes"}, headers=headers_de(crear_usuario(C))).json()
+    assert reporte["id"] in [p["id"] for p in mapa["puntos"]]
+
+
+def test_rechazar_con_motivo_cancela_asignaciones(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    voluntario = crear_usuario(V, organizacion=admin.organizacion)
+    asignacion = cliente.post(f"/reportes/{reporte['id']}/asignar", headers=headers_de(voluntario))
+    assert asignacion.status_code == 201, asignacion.text
+
+    r = cliente.patch(
+        f"/reportes/{reporte['id']}/rechazar", json={"motivo": "La foto es de otro año"}, headers=headers_de(admin)
+    )
+    assert r.status_code == 200 and r.json()["estado"] == "rechazado"
+    assert r.json()["motivo_rechazo"] == "La foto es de otro año"
+    mias = cliente.get("/asignaciones/mias", params={"estado": "activa"}, headers=headers_de(voluntario)).json()
+    assert mias["total"] == 0
+
+
+def test_rechazar_sin_cuerpo(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    r = cliente.patch(f"/reportes/{reporte['id']}/rechazar", headers=headers_de(admin))
+    assert r.status_code == 200 and r.json()["motivo_rechazo"] is None
+
+
+def test_marcar_duplicado_apunta_al_original(cliente, db, crear_usuario, headers_de):
+    admin, original = _caso(cliente, db, crear_usuario, headers_de)
+    _, copia = _caso(cliente, db, crear_usuario, headers_de)
+    _enrutar(db, copia["id"], admin.organizacion_id)
+    _, tercera = _caso(cliente, db, crear_usuario, headers_de)
+    _enrutar(db, tercera["id"], admin.organizacion_id)
+
+    r = cliente.patch(
+        f"/reportes/{copia['id']}/marcar-duplicado", json={"duplicado_de_id": original["id"]}, headers=headers_de(admin)
+    )
+    assert r.status_code == 200 and r.json()["estado"] == "duplicado"
+    # Duplicado de un duplicado: apunta al primero de la cadena
+    r = cliente.patch(
+        f"/reportes/{tercera['id']}/marcar-duplicado", json={"duplicado_de_id": copia["id"]}, headers=headers_de(admin)
+    )
+    assert r.json()["duplicado_de_id"] == original["id"]
+
+
+def test_duplicado_invalido(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    url = f"/reportes/{reporte['id']}/marcar-duplicado"
+    r = cliente.patch(url, json={"duplicado_de_id": reporte["id"]}, headers=headers_de(admin))
+    assert r.status_code == 422 and r.json()["codigo"] == "DUPLICADO_DE_SI_MISMO"
+    r = cliente.patch(url, json={"duplicado_de_id": "00000000-0000-0000-0000-000000000000"}, headers=headers_de(admin))
+    assert r.status_code == 404 and r.json()["codigo"] == "REPORTE_ORIGINAL_NO_ENCONTRADO"
+
+
+def test_solo_se_revisa_un_pendiente(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    cliente.patch(f"/reportes/{reporte['id']}/verificar", headers=headers_de(admin))
+    r = cliente.patch(f"/reportes/{reporte['id']}/rechazar", headers=headers_de(admin))
+    assert r.status_code == 409 and r.json()["codigo"] == "TRANSICION_NO_PERMITIDA"
+
+
+def test_quien_puede_verificar(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    url = f"/reportes/{reporte['id']}/verificar"
+    voluntario = crear_usuario(V, organizacion=admin.organizacion)
+    assert cliente.patch(url, headers=headers_de(voluntario)).status_code == 403
+    assert cliente.patch(url, headers=headers_de(crear_usuario(C))).status_code == 403
+    assert cliente.patch(url, headers=headers_de(crear_usuario(A))).status_code == 403  # otra organización
+    assert cliente.patch(url, headers=headers_de(crear_usuario(S))).status_code == 200
+
+
+# --- enrutar a una organización ---
+
+
+def test_super_admin_enruta_y_el_admin_ya_lo_ve(cliente, crear_usuario, headers_de):
+    admin = crear_usuario(A)
+    reporte = _creado(cliente, headers_de(crear_usuario(C)))
+    r = cliente.patch(
+        f"/reportes/{reporte['id']}/organizacion",
+        json={"organizacion_id": str(admin.organizacion_id)},
+        headers=headers_de(crear_usuario(S)),
+    )
+    assert r.status_code == 200 and r.json()["organizacion_manual_id"] == str(admin.organizacion_id)
+    items = cliente.get("/reportes", headers=headers_de(admin)).json()["items"]
+    assert [x["id"] for x in items] == [reporte["id"]]
+    assert items[0]["reportante"] is not None
+
+
+def test_enrutar_reporte_reglas(cliente, db, crear_usuario, crear_organizacion, headers_de):
+    super_admin = crear_usuario(S)
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    url = f"/reportes/{reporte['id']}/organizacion"
+
+    assert cliente.patch(url, json={"organizacion_id": str(admin.organizacion_id)}, headers=headers_de(admin)).status_code == 403
+
+    voluntario = crear_usuario(V, organizacion=admin.organizacion)
+    cliente.post(f"/reportes/{reporte['id']}/asignar", headers=headers_de(voluntario))
+    r = cliente.patch(url, json={"organizacion_id": str(crear_organizacion().id)}, headers=headers_de(super_admin))
+    assert r.status_code == 409 and r.json()["codigo"] == "REPORTE_CON_ASIGNACIONES"
+
+    _estado(db, reporte["id"], EstadoReporte.RECHAZADO)
+    r = cliente.patch(url, json={"organizacion_id": str(crear_organizacion().id)}, headers=headers_de(super_admin))
+    assert r.status_code == 409 and r.json()["codigo"] == "REPORTE_CERRADO"
