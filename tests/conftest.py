@@ -64,6 +64,16 @@ def engine_pruebas():
     engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def encolados(monkeypatch) -> list[tuple[str, tuple]]:
+    """Las pruebas no mandan jobs al worker real: se registran (nombre de la tarea, argumentos)."""
+    from app.jobs import encolar as cola
+
+    registro: list[tuple[str, tuple]] = []
+    monkeypatch.setattr(cola, "encolar", lambda tarea, *args: registro.append((tarea.name.rsplit(".", 1)[-1], args)))
+    return registro
+
+
 @pytest.fixture
 def db(engine_pruebas) -> Iterator[Session]:
     conexion = engine_pruebas.connect()

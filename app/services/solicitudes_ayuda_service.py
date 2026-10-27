@@ -3,7 +3,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.excepciones import Conflicto, NoEncontrado, SinPermiso
-from app.jobs.eventos import clasificar_prioridad_ia
+from app.jobs import encolar as cola
+from app.jobs.eventos.clasificar_prioridad_ia import clasificar_prioridad_ia
 from app.middlewares.role_middleware import alcance_organizacion, solo_propio, verificar_misma_organizacion
 from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
@@ -59,10 +60,8 @@ def crear_solicitud(db: Session, usuario: Usuario, datos: SolicitudAyudaIn) -> S
         prioridad_ia=PrioridadSolicitud.PENDIENTE,
     )
     db.commit()
-    try:
-        clasificar_prioridad_ia.clasificar_prioridad_ia.delay(str(solicitud.id))
-    except Exception:
-        pass
+    # Después del commit, para que el worker encuentre la fila
+    cola.encolar(clasificar_prioridad_ia, str(solicitud.id))
     return solicitud
 
 
@@ -78,6 +77,8 @@ def crear_sos(db: Session, usuario: Usuario, datos: SolicitudSOSIn) -> Solicitud
         prioridad_ia=PrioridadSolicitud.CRITICA,
     )
     db.commit()
+    # La prioridad ya es crítica; el job solo la enruta a una organización de rescate
+    cola.encolar(clasificar_prioridad_ia, str(solicitud.id))
     # TODO (B3): enviar_sms_respaldo.delay(str(solicitud.id)) -> SMS a los contactos de emergencia
     return solicitud
 
