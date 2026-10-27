@@ -21,18 +21,12 @@ DESCRIPCION_SOS = "Solicitud de emergencia (SOS)"
 
 
 def organizacion_efectiva(solicitud: SolicitudAyuda) -> UUID | None:
-    """Organización dueña del caso: la asignada a mano prevalece sobre la sugerida por la IA.
-
-    Hoy nadie llena ninguna de las dos, así que el caso solo lo ve el super_admin. Cuando exista el
-    enrutamiento solo cambia quién llena organizacion_objetivo_id; esta función y el resto no cambian.
-    """
     if solicitud.organizacion_manual_id is not None:
         return solicitud.organizacion_manual_id
     return solicitud.organizacion_objetivo_id
 
 
 def verificar_acceso(usuario: Usuario, solicitud: SolicitudAyuda) -> None:
-    """Matriz de permisos: ciudadano solo lo propio; voluntario y administrador, su organización; super_admin, todo."""
     dueno_id = solo_propio(usuario)
     if dueno_id is not None:  # es ciudadano
         if solicitud.usuario_id != dueno_id:
