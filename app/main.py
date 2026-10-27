@@ -23,9 +23,14 @@ configurar_logging()
 
 app = FastAPI(title="RESCATE360 API", version="0.1.0")
 
+# En local se acepta cualquier puerto de localhost: Flutter Web (`flutter run -d chrome`)
+# abre la app en un puerto distinto cada vez. Fuera de local solo valen CORS_ORIGINS.
+_CORS_LOCAL = r"http://(localhost|127\.0\.0\.1)(:\d+)?" if get_settings().app_env == "local" else None
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
+    allow_origin_regex=_CORS_LOCAL,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
