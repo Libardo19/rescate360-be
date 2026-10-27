@@ -24,6 +24,8 @@ from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
 from app.repositories import mapa_repository as repo
 from app.schemas.mapa_schema import CAPAS_MAPA, MapaOut, PuntoMapa
+from app.schemas.reportes_schema import etiqueta_tipo
+from app.services import reportes_service
 from app.services.solicitudes_ayuda_service import organizacion_efectiva
 from app.utils.geo import latlng_desde_punto
 
@@ -92,18 +94,14 @@ def _punto_solicitud(usuario: Usuario, solicitud: SolicitudAyuda) -> PuntoMapa:
 
 
 def _punto_reporte(usuario: Usuario, reporte: Reporte) -> PuntoMapa:
-    propio = (
-        es_super_admin(usuario)
-        or reporte.usuario_id == usuario.id
-        or (usuario.organizacion_id is not None and reporte.organizacion_objetivo_id == usuario.organizacion_id)
-    )
+    propio = reportes_service.es_propio(usuario, reporte)
     posicion = latlng_desde_punto(reporte.ubicacion)
     # Un reporte verificado es información pública: va con su ubicación exacta
     return PuntoMapa(
         id=reporte.id,
         capa="reporte",
         tipo=reporte.tipo,
-        titulo=reporte.tipo.capitalize(),
+        titulo=etiqueta_tipo(reporte.tipo),
         detalle=_corto(reporte.descripcion),
         estado=reporte.estado.value,
         lat=posicion["lat"],

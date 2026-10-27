@@ -12,6 +12,7 @@ from app.models.usuario import Usuario
 from app.repositories import asignaciones_repository as repo
 from app.repositories import solicitudes_ayuda_repository as solicitudes_repo
 from app.schemas.asignaciones_schema import AsignacionEstadoIn
+from app.services import reportes_service
 from app.services import solicitudes_ayuda_service as solicitudes_service
 from app.utils.paginacion import Paginacion
 
@@ -68,7 +69,7 @@ def tomar_reporte(db: Session, usuario: Usuario, reporte_id: UUID) -> Asignacion
     if reporte is None:
         raise NoEncontrado("El reporte no existe", codigo="REPORTE_NO_ENCONTRADO")
 
-    verificar_misma_organizacion(usuario, reporte.organizacion_objetivo_id)
+    verificar_misma_organizacion(usuario, reportes_service.organizacion_efectiva(reporte))
 
     if reporte.estado in (EstadoReporte.RECHAZADO, EstadoReporte.DUPLICADO, EstadoReporte.NO_VERIFICABLE):
         raise Conflicto("No se puede asignar un reporte en este estado", codigo="REPORTE_NO_ASIGNABLE")
@@ -126,7 +127,7 @@ def actualizar_estado(
         reporte = repo.bloquear_reporte(db, asignacion.reporte_id)
         if reporte is None:
             raise NoEncontrado("El reporte asociado no existe", codigo="REPORTE_NO_ENCONTRADO")
-        verificar_misma_organizacion(usuario, reporte.organizacion_objetivo_id)
+        verificar_misma_organizacion(usuario, reportes_service.organizacion_efectiva(reporte))
         asignacion = repo.actualizar_estado(db, asignacion, estado=datos.estado)
         db.commit()
         return asignacion
