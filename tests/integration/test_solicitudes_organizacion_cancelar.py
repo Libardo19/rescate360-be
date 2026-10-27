@@ -145,3 +145,20 @@ def test_no_se_cancela_una_solicitud_cerrada(cliente, db, crear_usuario, headers
     _cerrar(db, solicitud["id"], cerrada)
     r = cliente.post(f"{SOLICITUDES}/{solicitud['id']}/cancelar", headers=headers_de(ciudadano))
     assert r.status_code == 409 and r.json()["codigo"] == "SOLICITUD_CERRADA"
+
+
+# --- datos de contacto del solicitante ---
+
+
+def test_la_organizacion_ve_nombre_y_telefono_del_solicitante(cliente, db, crear_usuario, headers_de):
+    ciudadano = crear_usuario(C)
+    ciudadano.telefono = "+573001234567"
+    db.flush()
+    admin = crear_usuario(A)
+    solicitud = _crear(cliente, headers_de(ciudadano))
+    _enrutar(cliente, headers_de(crear_usuario(S)), solicitud["id"], admin.organizacion_id)
+
+    item = cliente.get(SOLICITUDES, headers=headers_de(admin)).json()["items"][0]
+    assert item["solicitante"] == {"nombre": ciudadano.nombre, "telefono": "+573001234567"}
+    detalle = cliente.get(f"{SOLICITUDES}/{solicitud['id']}", headers=headers_de(admin)).json()
+    assert detalle["solicitante"]["nombre"] == ciudadano.nombre
