@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.core.config import get_settings
 from app.core.security import verify_password
 from app.integrations import correo_client, twilio_client
 from app.models.enums import EstadoUsuario, RolUsuario
@@ -112,6 +113,11 @@ def test_si_el_envio_falla_la_respuesta_no_cambia(cliente, crear_usuario, monkey
 
 def test_sin_credenciales_los_clientes_solo_escriben_en_el_log(monkeypatch):
     # La app reconfigura el logging al arrancar, así que se captura el logger de cada cliente
+    # Aunque el .env local tenga credenciales reales, esta prueba nunca envía nada
+    s = get_settings()
+    for campo in ("twilio_account_sid", "twilio_auth_token", "twilio_from_number"):
+        monkeypatch.setattr(s, campo, "")
+    monkeypatch.setattr(s, "mail_enabled", False)
     registros: list[str] = []
     for modulo in (twilio_client, correo_client):
         monkeypatch.setattr(modulo.logger, "info", lambda msg, *args: registros.append(msg % args))
