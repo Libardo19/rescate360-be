@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, func, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,15 @@ class Asignacion(Base):
             "(solicitud_id IS NOT NULL AND reporte_id IS NULL) OR "
             "(solicitud_id IS NULL AND reporte_id IS NOT NULL)",
             name="chk_asignacion_a_uno_solo",
+        ),
+        # Creados en la migración 0007: un voluntario no tiene dos asignaciones activas al mismo caso
+        Index(
+            "uq_asignacion_activa_solicitud", "voluntario_id", "solicitud_id", unique=True,
+            postgresql_where=text("solicitud_id IS NOT NULL AND estado_asignacion = 'activa'"),
+        ),
+        Index(
+            "uq_asignacion_activa_reporte", "voluntario_id", "reporte_id", unique=True,
+            postgresql_where=text("reporte_id IS NOT NULL AND estado_asignacion = 'activa'"),
         ),
     )
 

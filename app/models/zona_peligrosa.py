@@ -15,6 +15,7 @@ class ZonaPeligrosa(Base):
     __table_args__ = (
         # Creado en la migración 0003 (confirma el nombre con el grep)
         Index("ix_zonas_peligrosas_organizacion_id", "organizacion_id"),
+        Index("ix_zonas_peligrosas_area", "area", postgresql_using="gist"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

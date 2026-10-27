@@ -14,6 +14,7 @@ class Alerta(Base):
     __table_args__ = (
         # Creado en la migración 0003
         Index("ix_alertas_organizacion_id", "organizacion_id"),
+        Index("ix_alertas_zona_afectada", "zona_afectada", postgresql_using="gist"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

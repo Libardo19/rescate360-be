@@ -10,6 +10,7 @@ from app.core.logging import RequestIdMiddleware, configurar_logging
 from app.middlewares.error_handler_middleware import registrar_manejadores_errores
 from app.routes import auth_routes
 from app.routes import solicitudes_ayuda_routes
+from app.routes import asignaciones_routes
 
 configurar_logging()
 
@@ -29,6 +30,7 @@ registrar_manejadores_errores(app)
 # Routers: cada dueño agrega su línea (archivo compartido, solo agregar).
 app.include_router(auth_routes.router)
 app.include_router(solicitudes_ayuda_routes.router)
+app.include_router(asignaciones_routes.router)
 
 
 @app.get("/health", tags=["health"])

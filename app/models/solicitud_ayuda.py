@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, func, text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +12,11 @@ from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitu
 
 class SolicitudAyuda(Base):
     __tablename__ = "solicitudes_ayuda"
+    __table_args__ = (
+        # Creados en la migración 0003
+        Index("ix_solicitudes_ayuda_estado_prioridad", "estado", "prioridad_ia"),
+        Index("ix_solicitudes_ayuda_ubicacion", "ubicacion", postgresql_using="gist"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
