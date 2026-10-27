@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func, text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.enums import EstadoReporte, pg_enum
+from app.models.enums import EstadoReporte, PrioridadSolicitud, pg_enum
 from app.models.evidencia_reporte import EvidenciaReporte
 
 
@@ -47,6 +47,16 @@ class Reporte(Base):
     organizacion_objetivo_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizaciones.id"), nullable=True
     )
+    # Clasificación de la IA (migración 0011). La prioridad manual del admin prevalece.
+    prioridad_ia: Mapped[PrioridadSolicitud] = mapped_column(
+        pg_enum(PrioridadSolicitud, "prioridad_solicitud"),
+        nullable=False, default=PrioridadSolicitud.PENDIENTE, server_default=PrioridadSolicitud.PENDIENTE.value,
+    )
+    prioridad_manual: Mapped[PrioridadSolicitud | None] = mapped_column(
+        pg_enum(PrioridadSolicitud, "prioridad_solicitud"), nullable=True
+    )
+    confianza_ia: Mapped[float | None] = mapped_column(Float, nullable=True)
+    razonamiento_ia: Mapped[str | None] = mapped_column(Text, nullable=True)
     # El super admin enruta a mano; prevalece sobre la sugerencia de la IA (migración 0010)
     organizacion_manual_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizaciones.id"), nullable=True
