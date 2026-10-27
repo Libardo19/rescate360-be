@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.controllers import solicitudes_ayuda_controller
 from app.middlewares.role_middleware import ROLES_ADMIN, require_role
+from app.models.enums import RolUsuario
 from app.schemas.solicitudes_ayuda_schema import SolicitudAyudaOut
 from app.utils.paginacion import Pagina
 
@@ -38,3 +39,14 @@ router.patch(
     summary="Cambiar el estado (administrador)",
     dependencies=[Depends(require_role(*ROLES_ADMIN))],
 )(solicitudes_ayuda_controller.actualizar_estado)
+
+router.patch(
+    "/{solicitud_id}/organizacion",
+    response_model=SolicitudAyudaOut,
+    summary="Enrutar la solicitud a una organización (super admin)",
+    dependencies=[Depends(require_role(RolUsuario.SUPER_ADMIN))],
+)(solicitudes_ayuda_controller.asignar_organizacion)
+
+router.post(
+    "/{solicitud_id}/cancelar", response_model=SolicitudAyudaOut, summary="Cancelar mi solicitud (solo el dueño)"
+)(solicitudes_ayuda_controller.cancelar_solicitud)

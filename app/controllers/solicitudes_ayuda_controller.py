@@ -13,6 +13,7 @@ from app.schemas.solicitudes_ayuda_schema import (
     SolicitudAyudaIn,
     SolicitudAyudaOut,
     SolicitudEstadoIn,
+    SolicitudOrganizacionIn,
     SolicitudPrioridadIn,
     SolicitudSOSIn,
 )
@@ -78,4 +79,23 @@ def actualizar_estado(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.actualizar_estado(db, usuario, solicitud_id, datos)
+    return SolicitudAyudaOut.model_validate(solicitud)
+
+
+def asignar_organizacion(
+    solicitud_id: UUID,
+    datos: SolicitudOrganizacionIn,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SolicitudAyudaOut:
+    solicitud = solicitudes_ayuda_service.asignar_organizacion(db, usuario, solicitud_id, datos)
+    return SolicitudAyudaOut.model_validate(solicitud)
+
+
+def cancelar_solicitud(
+    solicitud_id: UUID,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SolicitudAyudaOut:
+    solicitud = solicitudes_ayuda_service.cancelar_propia(db, usuario, solicitud_id)
     return SolicitudAyudaOut.model_validate(solicitud)

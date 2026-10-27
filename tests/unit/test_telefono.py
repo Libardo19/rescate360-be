@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.utils.telefono import Telefono
+from app.utils.telefono import Telefono, normalizar_telefono
 
 
 class _Modelo(BaseModel):
@@ -21,7 +21,12 @@ def test_normaliza_a_e164(entrada, esperado):
     assert _Modelo(telefono=entrada).telefono == esperado
 
 
-@pytest.mark.parametrize("entrada", ["12345", "telefono", "+0573001234567", "6012345678"])
+@pytest.mark.parametrize("entrada", ["12345", "telefono", "+0573001234567", "7012345678"])
 def test_rechaza_invalidos(entrada):
     with pytest.raises(ValidationError):
         _Modelo(telefono=entrada)
+
+
+def test_fijo_colombiano_sin_indicativo():
+    assert normalizar_telefono("605 570 0000") == "+576055700000"
+    assert normalizar_telefono("(601) 234-5678") == "+576012345678"

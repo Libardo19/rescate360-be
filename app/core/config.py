@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
     storage_bucket: str = ""
+    # Carpeta local de fotos y videos (servida en /uploads) y tamaños máximos por archivo
+    uploads_dir: str = "uploads"
+    foto_max_mb: int = 5
+    video_max_mb: int = 30
 
     retencion_fotos_dias: int = 90
     retencion_ubicaciones_dias: int = 30
@@ -37,6 +41,26 @@ class Settings(BaseSettings):
 
     # Versión de la política de tratamiento de datos que acepta el usuario al registrarse
     version_politica_datos: str = "1.0"
+
+    # Horas que dura el código de activación que el admin le entrega a un voluntario o admin nuevo
+    activacion_horas: int = 72
+    # Minutos que dura el código de "olvidé mi contraseña" (llega por SMS o correo)
+    recuperacion_minutos: int = 15
+
+    # Correo saliente por SMTP. Con mail_enabled=False no se envía nada: solo queda en el log.
+    # 465 = TLS directo; 587 = STARTTLS.
+    mail_enabled: bool = False
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    mail_from: str = ""
+    mail_from_name: str = "RESCATE360"
+
+    # Super admin inicial (scripts/seed/crear_super_admin.py). Nunca se crea por registro.
+    super_admin_nombre: str = "Super Admin"
+    super_admin_email: str = ""
+    super_admin_password: str = ""
 
 
 @lru_cache

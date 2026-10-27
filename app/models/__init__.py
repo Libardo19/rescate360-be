@@ -10,6 +10,7 @@ from app.models.usuario import Usuario
 from app.models.organizacion import Organizacion
 from app.models.contacto_emergencia import ContactoEmergencia
 from app.models.reporte import Reporte
+from app.models.evidencia_reporte import EvidenciaReporte
 from app.models.persona_desaparecida import PersonaDesaparecida
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.centro_ayuda import CentroAyuda
@@ -30,6 +31,7 @@ __all__ = [
     "Organizacion",
     "ContactoEmergencia",
     "Reporte",
+    "EvidenciaReporte",
     "PersonaDesaparecida",
     "SolicitudAyuda",
     "CentroAyuda",

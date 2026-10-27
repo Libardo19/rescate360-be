@@ -48,6 +48,22 @@ class SolicitudEstadoIn(BaseModel):
     estado: EstadoSolicitud
 
 
+class SolicitudOrganizacionIn(BaseModel):
+    """El super admin enruta la solicitud a mano (prevalece sobre la sugerencia de la IA)."""
+
+    organizacion_id: UUID
+
+
+class SolicitanteOut(BaseModel):
+    """Datos de contacto de quien pidió la ayuda. Solo los ven el propio ciudadano, la
+    organización que atiende el caso y el super admin (el detalle ya exige ese alcance)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    nombre: str
+    telefono: str | None
+
+
 class SolicitudAyudaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -65,6 +81,7 @@ class SolicitudAyudaOut(BaseModel):
     confianza_ia: float | None
     razonamiento_ia: str | None
     estado: EstadoSolicitud
+    solicitante: SolicitanteOut | None = None
     creado_en: datetime
     actualizado_en: datetime
 

@@ -27,3 +27,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Fotos y videos subidos en local (evidencias de reportes)
+uploads/

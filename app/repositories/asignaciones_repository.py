@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.asignacion import Asignacion
@@ -75,6 +75,37 @@ def contar_activas_de_solicitud(db: Session, solicitud_id: UUID) -> int:
         .where(Asignacion.solicitud_id == solicitud_id, Asignacion.estado_asignacion == EstadoAsignacion.ACTIVA)
     )
     return db.scalar(consulta) or 0
+
+
+def cancelar_activas_de_solicitud(db: Session, solicitud_id: UUID) -> int:
+    """Cancela todas las asignaciones activas de la solicitud. Devuelve cuántas cambió."""
+    resultado = db.execute(
+        update(Asignacion)
+        .where(Asignacion.solicitud_id == solicitud_id, Asignacion.estado_asignacion == EstadoAsignacion.ACTIVA)
+        .values(estado_asignacion=EstadoAsignacion.CANCELADA)
+        .execution_options(synchronize_session="fetch")
+    )
+    return resultado.rowcount
+
+
+def contar_activas_de_reporte(db: Session, reporte_id: UUID) -> int:
+    consulta = (
+        select(func.count())
+        .select_from(Asignacion)
+        .where(Asignacion.reporte_id == reporte_id, Asignacion.estado_asignacion == EstadoAsignacion.ACTIVA)
+    )
+    return db.scalar(consulta) or 0
+
+
+def cancelar_activas_de_reporte(db: Session, reporte_id: UUID) -> int:
+    """Cancela las asignaciones activas del reporte (se rechazó o era duplicado)."""
+    resultado = db.execute(
+        update(Asignacion)
+        .where(Asignacion.reporte_id == reporte_id, Asignacion.estado_asignacion == EstadoAsignacion.ACTIVA)
+        .values(estado_asignacion=EstadoAsignacion.CANCELADA)
+        .execution_options(synchronize_session="fetch")
+    )
+    return resultado.rowcount
 
 
 def listar_de_voluntario(
