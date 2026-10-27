@@ -20,3 +20,7 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+# Registra el listener que fija el actor de auditoría en cada transacción.
+import app.middlewares.audit_middleware  # noqa: E402,F401
