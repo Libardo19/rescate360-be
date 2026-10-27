@@ -48,6 +48,12 @@ class SolicitudEstadoIn(BaseModel):
     estado: EstadoSolicitud
 
 
+class SolicitudOrganizacionIn(BaseModel):
+    """El super admin enruta la solicitud a mano (prevalece sobre la sugerencia de la IA)."""
+
+    organizacion_id: UUID
+
+
 class SolicitudAyudaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -24,7 +24,8 @@ class Organizacion(Base):
     )
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     tipo: Mapped[TipoOrganizacion] = mapped_column(pg_enum(TipoOrganizacion, "tipo_organizacion"), nullable=False)
-    telefono_contacto: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # Formato E.164: +573001234567 (migración 0009)
+    telefono_contacto: Mapped[str | None] = mapped_column(String(15), nullable=True)
     zona_cobertura: Mapped[Geometry | None] = mapped_column(
         Geometry(geometry_type="POLYGON", srid=4326, spatial_index=False), nullable=True
     )

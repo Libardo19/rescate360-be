@@ -26,11 +26,13 @@ _bearer = HTTPBearer(auto_error=False, description="Token de acceso: `Authorizat
 
 
 def verificar_estado(usuario: Usuario) -> None:
-    """Un usuario bloqueado o pendiente de aprobación no puede operar."""
+    """Un usuario bloqueado, pendiente de activación o de una organización desactivada no puede operar."""
     if usuario.estado == EstadoUsuario.BLOQUEADO:
         raise SinPermiso("Tu cuenta está bloqueada", codigo="USUARIO_BLOQUEADO")
     if usuario.estado == EstadoUsuario.EN_ESPERA:
-        raise SinPermiso("Tu cuenta todavía no ha sido aprobada", codigo="USUARIO_EN_ESPERA")
+        raise SinPermiso("Tu cuenta todavía no ha sido activada", codigo="USUARIO_EN_ESPERA")
+    if usuario.organizacion is not None and not usuario.organizacion.activa:
+        raise SinPermiso("Tu organización está desactivada", codigo="ORGANIZACION_INACTIVA")
 
 
 def get_current_user(
