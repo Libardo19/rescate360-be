@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from geoalchemy2.elements import WKTElement
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -24,4 +25,18 @@ def crear(db: Session, **campos) -> Usuario:
 
 def registrar_acceso(db: Session, usuario: Usuario) -> None:
     usuario.ultimo_acceso = datetime.now(UTC)
+    db.flush()
+
+
+def actualizar_ubicacion(db: Session, usuario: Usuario, ubicacion: WKTElement) -> Usuario:
+    usuario.ubicacion_actual = ubicacion
+    usuario.ubicacion_actualizada_en = datetime.now(UTC)
+    db.flush()
+    db.refresh(usuario)  # ubicacion_actual vuelve como WKBElement, igual que al leerla
+    return usuario
+
+
+def borrar_ubicacion(db: Session, usuario: Usuario) -> None:
+    usuario.ubicacion_actual = None
+    usuario.ubicacion_actualizada_en = None
     db.flush()

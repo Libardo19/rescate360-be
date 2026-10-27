@@ -51,6 +51,8 @@ class Usuario(Base):
     ubicacion_actual: Mapped[Geometry | None] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True
     )
+    # Cuándo se guardó ubicacion_actual (migración 0007): descarta ubicaciones viejas y aplica la retención
+    ubicacion_actualizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(

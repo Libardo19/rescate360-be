@@ -11,6 +11,7 @@ from app.middlewares.error_handler_middleware import registrar_manejadores_error
 from app.routes import auth_routes
 from app.routes import solicitudes_ayuda_routes
 from app.routes import asignaciones_routes
+from app.routes import usuarios_routes
 
 configurar_logging()
 
@@ -31,6 +32,7 @@ registrar_manejadores_errores(app)
 app.include_router(auth_routes.router)
 app.include_router(solicitudes_ayuda_routes.router)
 app.include_router(asignaciones_routes.router)
+app.include_router(usuarios_routes.router)
 
 
 @app.get("/health", tags=["health"])
