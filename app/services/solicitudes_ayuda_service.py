@@ -2,15 +2,17 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.excepciones import NoEncontrado, SinPermiso
+from app.core.excepciones import Conflicto, NoEncontrado, SinPermiso
 from app.middlewares.role_middleware import alcance_organizacion, solo_propio, verificar_misma_organizacion
-from app.models.enums import OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
+from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
+from app.repositories import asignaciones_repository, organizaciones_repository
 from app.repositories import solicitudes_ayuda_repository as repo
 from app.schemas.solicitudes_ayuda_schema import (
     SolicitudAyudaIn,
     SolicitudEstadoIn,
+    SolicitudOrganizacionIn,
     SolicitudPrioridadIn,
     SolicitudSOSIn,
 )
@@ -18,6 +20,7 @@ from app.utils.geo import punto_desde_latlng
 from app.utils.paginacion import Paginacion
 
 DESCRIPCION_SOS = "Solicitud de emergencia (SOS)"
+ESTADOS_ABIERTOS = (EstadoSolicitud.PENDIENTE, EstadoSolicitud.EN_PROCESO)
 
 
 def organizacion_efectiva(solicitud: SolicitudAyuda) -> UUID | None:
@@ -109,5 +112,47 @@ def actualizar_estado(db: Session, usuario: Usuario, solicitud_id: UUID, datos: 
     """Solo administrador y super_admin (se exige en la ruta). Sin reglas de transición: el plan no las define."""
     solicitud = obtener_solicitud(db, usuario, solicitud_id)
     solicitud = repo.actualizar_estado(db, solicitud, estado=datos.estado, modificado_por=usuario.id)
+    db.commit()
+    return solicitud
+
+
+def asignar_organizacion(
+    db: Session, usuario: Usuario, solicitud_id: UUID, datos: SolicitudOrganizacionIn
+) -> SolicitudAyuda:
+    """Solo super_admin (se exige en la ruta). Mientras no haya IA, así llega el caso a una organización."""
+    solicitud = asignaciones_repository.bloquear_solicitud(db, solicitud_id)
+    if solicitud is None:
+        raise NoEncontrado("La solicitud no existe", codigo="SOLICITUD_NO_ENCONTRADA")
+    organizacion = organizaciones_repository.obtener_por_id(db, datos.organizacion_id)
+    if organizacion is None:
+        raise NoEncontrado("La organización no existe", codigo="ORGANIZACION_NO_ENCONTRADA")
+    if not organizacion.activa:
+        raise Conflicto("La organización está desactivada", codigo="ORGANIZACION_INACTIVA")
+    if solicitud.estado not in ESTADOS_ABIERTOS:
+        raise Conflicto("La solicitud ya está cerrada", codigo="SOLICITUD_CERRADA")
+    # Los voluntarios que la tienen son de la organización anterior: primero deben soltarla
+    if asignaciones_repository.contar_activas_de_solicitud(db, solicitud.id) > 0:
+        raise Conflicto(
+            "La solicitud tiene voluntarios asignados; deben cancelar su asignación antes de moverla",
+            codigo="SOLICITUD_CON_ASIGNACIONES",
+        )
+    solicitud = repo.actualizar_organizacion(
+        db, solicitud, organizacion_id=organizacion.id, modificado_por=usuario.id
+    )
+    db.commit()
+    return solicitud
+
+
+def cancelar_propia(db: Session, usuario: Usuario, solicitud_id: UUID) -> SolicitudAyuda:
+    """El dueño cancela su solicitud (p. ej. ya no necesita ayuda). Las asignaciones activas se cancelan."""
+    solicitud = asignaciones_repository.bloquear_solicitud(db, solicitud_id)
+    if solicitud is None:
+        raise NoEncontrado("La solicitud no existe", codigo="SOLICITUD_NO_ENCONTRADA")
+    if solicitud.usuario_id != usuario.id:
+        raise SinPermiso("Solo quien creó la solicitud puede cancelarla", codigo="SOLICITUD_FUERA_DE_ALCANCE")
+    if solicitud.estado not in ESTADOS_ABIERTOS:
+        raise Conflicto("La solicitud ya está cerrada", codigo="SOLICITUD_CERRADA")
+    asignaciones_repository.cancelar_activas_de_solicitud(db, solicitud.id)
+    solicitud = repo.actualizar_estado(db, solicitud, estado=EstadoSolicitud.CANCELADA, modificado_por=usuario.id)
     db.commit()
     return solicitud

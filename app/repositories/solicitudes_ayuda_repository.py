@@ -87,3 +87,13 @@ def actualizar_estado(
     db.flush()
     db.refresh(solicitud)
     return solicitud
+
+
+def actualizar_organizacion(
+    db: Session, solicitud: SolicitudAyuda, *, organizacion_id: UUID, modificado_por: UUID
+) -> SolicitudAyuda:
+    solicitud.organizacion_manual_id = organizacion_id
+    solicitud.modificado_por = modificado_por
+    db.flush()
+    db.refresh(solicitud)
+    return solicitud

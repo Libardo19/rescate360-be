@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,6 +22,8 @@ class Usuario(Base):
         # Creados en la migración 0003
         Index("ix_usuarios_organizacion_id", "organizacion_id"),
         Index("ix_usuarios_ubicacion_actual", "ubicacion_actual", postgresql_using="gist"),
+        # Migración 0009
+        UniqueConstraint("codigo", name="uq_usuarios_codigo"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -51,8 +53,17 @@ class Usuario(Base):
     ubicacion_actual: Mapped[Geometry | None] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True
     )
-    # Cuándo se guardó ubicacion_actual (migración 0007): descarta ubicaciones viejas y aplica la retención
+    # Cuándo se guardó ubicacion_actual (migración 0008): descarta ubicaciones viejas y aplica la retención
     ubicacion_actualizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Código legible para el panel (USR-001), lo asigna la BD con una secuencia (migración 0009)
+    codigo: Mapped[str] = mapped_column(String(12), nullable=False, server_default=text("fn_codigo_usuario()"))
+    # Alta por invitación: hash (SHA-256) del código de un solo uso y su vencimiento. Nulos = no hay invitación pendiente
+    codigo_activacion_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    codigo_activacion_vence: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # "Olvidé mi contraseña": hash del código que llega por SMS o correo y su vencimiento (migración 0009)
+    codigo_recuperacion_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    codigo_recuperacion_vence: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(

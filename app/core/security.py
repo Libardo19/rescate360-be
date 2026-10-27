@@ -1,5 +1,7 @@
 """Contraseñas (bcrypt) y tokens de sesión (JWT)."""
 
+import hashlib
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -31,6 +33,31 @@ def verify_password(password: str, password_hash: str) -> bool:
         return bcrypt.checkpw(datos, password_hash.encode("utf-8"))
     except ValueError:  # hash con formato inválido
         return False
+
+
+# Sin 0/O ni 1/I/L: el código se dicta por teléfono o se copia de un chat.
+_ALFABETO_CODIGO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+LARGO_CODIGO_ACTIVACION = 8
+
+
+def generar_codigo_activacion() -> str:
+    """Código de un solo uso, legible (ej. 'K7MZ-Q3RT'): 31^8 ≈ 8,5 × 10^11 combinaciones."""
+    crudo = "".join(secrets.choice(_ALFABETO_CODIGO) for _ in range(LARGO_CODIGO_ACTIVACION))
+    return f"{crudo[:4]}-{crudo[4:]}"
+
+
+def hash_codigo(codigo: str) -> str:
+    """SHA-256 del código normalizado (sin guion, mayúsculas): en la BD nunca queda el código.
+
+    No hace falta bcrypt: el código es aleatorio, de un solo uso y vence en horas.
+    """
+    normalizado = codigo.replace("-", "").replace(" ", "").upper()
+    return hashlib.sha256(normalizado.encode("utf-8")).hexdigest()
+
+
+def contrasena_inutilizable() -> str:
+    """Hash de un secreto aleatorio que nadie conoce: la cuenta existe pero no se puede entrar con contraseña."""
+    return hash_password(secrets.token_urlsafe(32))
 
 
 def _crear_token(usuario, tipo: str, duracion: timedelta) -> str:

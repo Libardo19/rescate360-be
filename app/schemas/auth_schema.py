@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.security import BCRYPT_MAX_BYTES
@@ -53,6 +55,71 @@ class LoginIn(BaseModel):
 
 class RefreshIn(BaseModel):
     refresh_token: str = Field(min_length=1)
+
+
+class ActivarIn(BaseModel):
+    """El voluntario o admin invitado canjea su código y pone su contraseña."""
+
+    email: EmailStr
+    codigo: str = Field(min_length=8, max_length=12)
+    password: str = Field(min_length=8)
+    # La persona invitada también autoriza el tratamiento de sus datos (Ley 1581)
+    acepta_tratamiento_datos: bool
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, valor: str) -> str:
+        return valor.lower()
+
+    @field_validator("password")
+    @classmethod
+    def _password(cls, valor: str) -> str:
+        if len(valor.encode("utf-8")) > BCRYPT_MAX_BYTES:
+            raise ValueError(f"La contraseña no puede superar {BCRYPT_MAX_BYTES} bytes")
+        return valor
+
+    @field_validator("acepta_tratamiento_datos")
+    @classmethod
+    def _acepta(cls, valor: bool) -> bool:
+        if not valor:
+            raise ValueError("Debes aceptar la política de tratamiento de datos para activar tu cuenta")
+        return valor
+
+
+class RecuperarIn(BaseModel):
+    """"Olvidé mi contraseña": la persona elige si el código le llega por SMS o por correo."""
+
+    email: EmailStr
+    canal: Literal["sms", "correo"]
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, valor: str) -> str:
+        return valor.lower()
+
+
+class RestablecerIn(BaseModel):
+    """Canje del código de recuperación por una contraseña nueva."""
+
+    email: EmailStr
+    codigo: str = Field(min_length=8, max_length=12)
+    password: str = Field(min_length=8)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, valor: str) -> str:
+        return valor.lower()
+
+    @field_validator("password")
+    @classmethod
+    def _password(cls, valor: str) -> str:
+        if len(valor.encode("utf-8")) > BCRYPT_MAX_BYTES:
+            raise ValueError(f"La contraseña no puede superar {BCRYPT_MAX_BYTES} bytes")
+        return valor
+
+
+class MensajeOut(BaseModel):
+    detalle: str
 
 
 class SesionOut(BaseModel):

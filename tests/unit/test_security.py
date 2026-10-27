@@ -13,6 +13,8 @@ from app.core.security import (
     crear_access_token,
     crear_refresh_token,
     decodificar_token,
+    generar_codigo_activacion,
+    hash_codigo,
     hash_password,
     verify_password,
 )
@@ -69,3 +71,17 @@ def test_token_con_otra_firma():
     token = jwt.encode({"sub": "x", "tipo": TOKEN_ACCESS, "exp": datetime.now(UTC) + timedelta(minutes=5)}, "otra")
     with pytest.raises(NoAutenticado):
         decodificar_token(token, TOKEN_ACCESS)
+
+
+def test_codigo_de_activacion_legible_y_sin_caracteres_ambiguos():
+    codigos = {generar_codigo_activacion() for _ in range(200)}
+    assert len(codigos) == 200  # no se repiten
+    for codigo in codigos:
+        assert len(codigo) == 9 and codigo[4] == "-"
+        assert not set(codigo) & set("01OIL")
+
+
+def test_hash_de_codigo_ignora_guion_espacios_y_mayusculas():
+    assert hash_codigo("K7MZ-Q3RT") == hash_codigo("k7mz q3rt") == hash_codigo("K7MZQ3RT")
+    assert hash_codigo("K7MZ-Q3RT") != hash_codigo("K7MZ-Q3RA")
+    assert len(hash_codigo("K7MZ-Q3RT")) == 64
