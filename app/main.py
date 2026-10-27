@@ -13,6 +13,7 @@ from app.routes import solicitudes_ayuda_routes
 from app.routes import asignaciones_routes
 from app.routes import usuarios_routes
 from app.routes import organizaciones_routes
+from app.routes import mapa_routes
 
 configurar_logging()
 
@@ -35,6 +36,7 @@ app.include_router(solicitudes_ayuda_routes.router)
 app.include_router(asignaciones_routes.router)
 app.include_router(usuarios_routes.router)
 app.include_router(organizaciones_routes.router)
+app.include_router(mapa_routes.router)
 
 
 @app.get("/health", tags=["health"])
