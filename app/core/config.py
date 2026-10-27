@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     jwt_access_expires_min: int = 30
     jwt_refresh_expires_days: int = 7
 
-    ia_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = ""  
+    gemini_base_url: str = ""
+    gemini_timeout: int = 30
     firebase_credentials_path: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
