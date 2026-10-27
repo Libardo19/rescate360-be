@@ -43,4 +43,6 @@ jobs:
       # Detecta dependencias incompatibles antes de correr nada
       - run: pip check
       - run: alembic upgrade head
+      # Los modelos deben coincidir con la BD migrada (si no, --autogenerate propone borrar cosas)
+      - run: alembic check
       - run: pytest -q
