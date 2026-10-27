@@ -134,3 +134,21 @@ def test_el_prompt_incluye_el_caso_y_las_organizaciones():
     )
     assert "REPORTE DE INCIDENTE" in prompt and "fuga de gas" in prompt and "evidencias adjuntas: 2" in prompt
     assert str(BOMBEROS.id) in prompt
+
+
+def test_clave_gemini_via_header_no_en_url(con_clave, monkeypatch):
+    cliente_real = httpx.Client
+
+    def responder(request):
+        assert request.headers["x-goog-api-key"] == "clave-de-prueba"
+        assert "key" not in request.url.params
+        assert "clave-de-prueba" not in str(request.url)
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [
+            {"text": _respuesta().model_dump_json()},
+        ]}}]})
+
+    monkeypatch.setattr(ia_client.httpx, "Client", lambda **kwargs: cliente_real(
+        transport=httpx.MockTransport(responder), **kwargs,
+    ))
+    resultado = ia_client._llamar("modelo-a", "Caso de prueba")
+    assert resultado.prioridad == P.CRITICA

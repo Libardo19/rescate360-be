@@ -10,8 +10,7 @@
 import logging
 from uuid import UUID
 
-from celery import shared_task
-
+from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.models.enums import OrigenSolicitud, PrioridadSolicitud
 from app.repositories import solicitudes_ayuda_repository as repo
@@ -21,7 +20,7 @@ from app.services import clasificador_reglas, ia_service
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=30, retry_backoff=True)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=30, retry_backoff=True)
 def clasificar_prioridad_ia(self, solicitud_id: str) -> dict:
     db = SessionLocal()
     try:

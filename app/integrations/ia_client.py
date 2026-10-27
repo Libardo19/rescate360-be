@@ -93,7 +93,8 @@ def _llamar(modelo: str, prompt: str) -> IAPrioridadRespuesta:
         },
     }
     with httpx.Client(timeout=settings.gemini_timeout) as cliente:
-        respuesta = cliente.post(url, params={"key": settings.gemini_api_key}, json=payload)
+        # La clave no debe terminar en las URLs que httpx escribe en los logs.
+        respuesta = cliente.post(url, headers={"x-goog-api-key": settings.gemini_api_key}, json=payload)
         respuesta.raise_for_status()
         datos = respuesta.json()
     try:

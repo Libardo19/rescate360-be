@@ -6,8 +6,7 @@ Mismo funcionamiento que clasificar_prioridad_ia: idempotente y sin pisar lo man
 import logging
 from uuid import UUID
 
-from celery import shared_task
-
+from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.models.enums import PrioridadSolicitud
 from app.repositories import reportes_repository as repo
@@ -17,7 +16,7 @@ from app.services import ia_service
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=30, retry_backoff=True)
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=30, retry_backoff=True)
 def clasificar_reporte_ia(self, reporte_id: str) -> dict:
     db = SessionLocal()
     try:
