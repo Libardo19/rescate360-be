@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import redis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.core.config import get_settings
@@ -37,6 +40,11 @@ app.include_router(asignaciones_routes.router)
 app.include_router(usuarios_routes.router)
 app.include_router(organizaciones_routes.router)
 app.include_router(mapa_routes.router)
+
+# Fotos y videos subidos (evidencias). Con bucket, esto lo sirve el bucket y no la API.
+_uploads = Path(get_settings().uploads_dir)
+_uploads.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads), name="uploads")
 
 
 @app.get("/health", tags=["health"])
