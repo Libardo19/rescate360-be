@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.enums import EstadoReporte, EstadoSolicitud
@@ -60,7 +60,8 @@ def listar_reportes(
     if not todos:
         visibles = [Reporte.estado == EstadoReporte.VERIFICADO, Reporte.usuario_id == usuario_id]
         if organizacion_id is not None:
-            visibles.append(Reporte.organizacion_objetivo_id == organizacion_id)
+            organizacion_efectiva = func.coalesce(Reporte.organizacion_manual_id, Reporte.organizacion_objetivo_id)
+            visibles.append(organizacion_efectiva == organizacion_id)
         filtros.append(or_(*visibles))
     consulta = select(Reporte).where(*filtros).order_by(Reporte.actualizado_en.desc()).limit(MAXIMO_POR_CAPA)
     return list(db.scalars(consulta).all())

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
     storage_bucket: str = ""
+    # Carpeta local de fotos y videos (servida en /uploads) y tamaños máximos por archivo
+    uploads_dir: str = "uploads"
+    foto_max_mb: int = 5
+    video_max_mb: int = 30
 
     retencion_fotos_dias: int = 90
     retencion_ubicaciones_dias: int = 30
