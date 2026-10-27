@@ -32,9 +32,10 @@ def latlng_desde_punto(geom) -> dict | None:
     a {"lat":, "lng":} para la respuesta JSON de la API."""
     if geom is None:
         return None
-    from shapely import wkb
+    from geoalchemy2.shape import to_shape
 
-    punto = wkb.loads(bytes(geom.data))
+    # to_shape acepta WKB (leído de la BD) y WKT (recién creado, aún sin recargar)
+    punto = to_shape(geom)
     return {"lat": punto.y, "lng": punto.x}
 
 
