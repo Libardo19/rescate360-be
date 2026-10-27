@@ -104,6 +104,7 @@ def _punto_reporte(usuario: Usuario, reporte: Reporte) -> PuntoMapa:
         titulo=etiqueta_tipo(reporte.tipo),
         detalle=_corto(reporte.descripcion),
         estado=reporte.estado.value,
+        prioridad=(reporte.prioridad_manual or reporte.prioridad_ia).value,
         lat=posicion["lat"],
         lng=posicion["lng"],
         aproximada=False,

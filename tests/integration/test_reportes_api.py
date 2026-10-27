@@ -284,3 +284,14 @@ def test_enrutar_reporte_reglas(cliente, db, crear_usuario, crear_organizacion, 
     _estado(db, reporte["id"], EstadoReporte.RECHAZADO)
     r = cliente.patch(url, json={"organizacion_id": str(crear_organizacion().id)}, headers=headers_de(super_admin))
     assert r.status_code == 409 and r.json()["codigo"] == "REPORTE_CERRADO"
+
+
+def test_admin_fija_la_prioridad_manual(cliente, db, crear_usuario, headers_de):
+    admin, reporte = _caso(cliente, db, crear_usuario, headers_de)
+    r = cliente.patch(f"/reportes/{reporte['id']}/prioridad", json={"prioridad_manual": "critica"}, headers=headers_de(admin))
+    assert r.status_code == 200 and r.json()["prioridad_manual"] == "critica"
+    otro = crear_usuario(A)
+    r = cliente.patch(f"/reportes/{reporte['id']}/prioridad", json={"prioridad_manual": "baja"}, headers=headers_de(otro))
+    assert r.status_code == 403
+    r = cliente.patch(f"/reportes/{reporte['id']}/prioridad", json={"prioridad_manual": "pendiente"}, headers=headers_de(admin))
+    assert r.status_code == 422
