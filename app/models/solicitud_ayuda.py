@@ -4,7 +4,7 @@ from datetime import datetime
 from geoalchemy2 import Geometry
 from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud, pg_enum
@@ -64,6 +64,9 @@ class SolicitudAyuda(Base):
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+    # Quien la pidió: el panel muestra su nombre y teléfono para poder contactarlo
+    solicitante: Mapped["Usuario"] = relationship(foreign_keys=[usuario_id], lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<SolicitudAyuda {self.id} {self.estado} {self.prioridad_ia}>"
