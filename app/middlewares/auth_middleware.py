@@ -46,12 +46,36 @@ def get_current_user(
     try:
         usuario_id = UUID(payload["sub"])
     except ValueError:
-        raise NoAutenticado("Token inválido", codigo="TOKEN_INVALIDO") from None
+        raise NoAutenticado("Token invalido", codigo="TOKEN_INVALIDO") from None
 
     usuario = usuarios_repository.obtener_por_id(db, usuario_id)
     if usuario is None:
-        raise NoAutenticado("Token inválido", codigo="TOKEN_INVALIDO")
+        raise NoAutenticado("Token invalido", codigo="TOKEN_INVALIDO")
     verificar_estado(usuario)
 
     fijar_actor(db, usuario.id)
     return usuario
+
+
+def get_current_user_optional(
+    credenciales: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> Usuario | None:
+    if credenciales is None:
+        return None
+
+    try:
+        payload = decodificar_token(credenciales.credentials, TOKEN_ACCESS)
+        usuario_id = UUID(payload["sub"])
+        usuario = usuarios_repository.obtener_por_id(db, usuario_id)
+        if usuario is None:
+            return None
+        try:
+            verificar_estado(usuario)
+        except Exception:
+            return None
+        fijar_actor(db, usuario.id)
+        return usuario
+    except Exception:
+        return None
+
