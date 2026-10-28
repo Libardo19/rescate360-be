@@ -40,7 +40,7 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> Usuario:
     if credenciales is None:
-        raise NoAutenticado("Debes iniciar sesion", codigo="TOKEN_REQUERIDO")
+        raise NoAutenticado("Debes iniciar sesión", codigo="TOKEN_REQUERIDO")
 
     payload = decodificar_token(credenciales.credentials, TOKEN_ACCESS)
     try:
