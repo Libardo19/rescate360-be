@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select
 from sqlalchemy.orm import Session
 
 from app.models.centro_ayuda import CentroAyuda
@@ -64,7 +64,7 @@ def listar(
     if estado is not None:
         filtros.append(CentroAyuda.estado == estado)
     if q is not None and q.strip():
-        patron = f\"%{q.strip().lower()}%\"
+        patron = f"%{q.strip().lower()}%"
         filtros.append(
             func.lower(func.coalesce(CentroAyuda.nombre, '')).like(patron)
             | func.lower(func.coalesce(CentroAyuda.direccion, '')).like(patron)
@@ -86,7 +86,7 @@ def listar(
         consulta = select(CentroAyuda, distancia).where(*filtros)
         consulta = consulta.order_by(distancia.asc())
     else:
-        consulta = select(CentroAyuda, func.null()).where(*filtros)
+        consulta = select(CentroAyuda, literal(None)).where(*filtros)
         consulta = consulta.order_by(CentroAyuda.nombre.asc())
 
     if pag is not None:

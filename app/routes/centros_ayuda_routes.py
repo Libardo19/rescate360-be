@@ -27,12 +27,12 @@ router.post(
     '',
     status_code=201,
     response_model=CentroAyudaOut,
-    summary='Crear centro de ayuda (administrador de organización o super admin)',
+    summary='Crear centro de ayuda (administrador de organizacion o super admin)',
 )(centros_ayuda_controller.crear_centro)
 
 
 router.patch(
     '/{centro_id}',
     response_model=CentroAyudaOut,
-    summary='Actualizar centro de ayuda (administrador dueño de organización o super admin)',
+    summary='Actualizar centro de ayuda (administrador duenio de organizacion o super admin)',
 )(centros_ayuda_controller.actualizar_centro)

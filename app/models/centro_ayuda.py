@@ -20,7 +20,7 @@ class CentroAyuda(Base):
     )
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     tipo: Mapped[str] = mapped_column(String(30), nullable=False)
-    estado: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text(\"'activo'\"))
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, server_default=text("activo"))
     direccion: Mapped[str | None] = mapped_column(String(200), nullable=True)
     ubicacion: Mapped[Geometry] = mapped_column(
         Geometry(geometry_type='POINT', srid=4326, spatial_index=False), nullable=False
