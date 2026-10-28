@@ -10,8 +10,8 @@ from alembic import op
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects import postgresql
 
-revision = "0008"
-down_revision = "0007"  # <-- pon aquí lo que muestre "alembic heads" después del git pull
+revision = "0015"
+down_revision = "0014"  # <-- pon aquí lo que muestre "alembic heads" después del git pull
 branch_labels = None
 depends_on = None
 
