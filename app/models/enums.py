@@ -92,7 +92,17 @@ class EstadoAsignacion(str, enum.Enum):
     CANCELADA = "cancelada"
 
 
-# --- Dev A: usuarios, consentimientos y dispositivos (migración 0005) ---
+class TipoCentro(str, enum.Enum):
+    ALBERGUE = "albergue"
+    COMEDOR = "comedor"
+    PUESTO_MEDICO = "puesto_medico"
+    CENTRO_ACOPIO = "centro_acopio"
+
+
+class EstadoCentro(str, enum.Enum):
+    ACTIVO = "activo"
+    EN_OPERACION = "en_operacion"
+    INACTIVO = "inactivo"
 
 
 class EstadoUsuario(str, enum.Enum):
