@@ -1,7 +1,7 @@
 """reportes: clasificación de la IA (prioridad, confianza y razonamiento)
 
-Revision ID: 0011
-Revises: 0010
+Revision ID: 0012
+Revises: 0011
 Create Date: 2026-10-27
 
 Dev A (integración de la IA).

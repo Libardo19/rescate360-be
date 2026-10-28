@@ -71,7 +71,8 @@ class TipoSolicitud(str, enum.Enum):
 
 class EstadoZona(str, enum.Enum):
     ACTIVA = "activa"
-    RESUELTA = "resuelta"
+    EN_MONITOREO = "en_monitoreo"
+    INACTIVA = "inactiva"
 
 
 class MetodoEnvio(str, enum.Enum):
@@ -121,3 +122,8 @@ class PlataformaDispositivo(str, enum.Enum):
     ANDROID = "android"
     IOS = "ios"
     WEB = "web"
+
+class NivelZona(str, enum.Enum):
+    BAJO = "bajo"
+    MEDIO = "medio"
+    ALTO = "alto"
