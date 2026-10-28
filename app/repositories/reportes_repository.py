@@ -5,7 +5,7 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoReporte
+from app.models.enums import EstadoReporte, PrioridadSolicitud
 from app.models.evidencia_reporte import EvidenciaReporte
 from app.models.reporte import Reporte
 from app.utils.paginacion import Paginacion
@@ -82,6 +82,31 @@ def listar(
 def actualizar(db: Session, reporte: Reporte, **campos) -> Reporte:
     for campo, valor in campos.items():
         setattr(reporte, campo, valor)
+    db.flush()
+    db.refresh(reporte)
+    return reporte
+
+
+def obtener_para_clasificar(db: Session, reporte_id: UUID) -> Reporte | None:
+    consulta = (
+        select(Reporte).where(Reporte.id == reporte_id).with_for_update().execution_options(populate_existing=True)
+    )
+    return db.scalars(consulta).one_or_none()
+
+
+def aplicar_clasificacion_ia(
+    db: Session,
+    reporte: Reporte,
+    *,
+    prioridad_ia: PrioridadSolicitud,
+    organizacion_objetivo_id: UUID | None,
+    confianza_ia: float | None,
+    razonamiento_ia: str | None,
+) -> Reporte:
+    reporte.prioridad_ia = prioridad_ia
+    reporte.organizacion_objetivo_id = organizacion_objetivo_id
+    reporte.confianza_ia = confianza_ia
+    reporte.razonamiento_ia = razonamiento_ia
     db.flush()
     db.refresh(reporte)
     return reporte

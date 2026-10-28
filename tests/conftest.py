@@ -64,6 +64,28 @@ def engine_pruebas():
     engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def sin_servicios_externos(monkeypatch):
+    """Aunque el .env local tenga credenciales reales (Twilio, correo, Gemini), las pruebas
+    nunca envían SMS ni correos ni consumen la IA. La prueba que necesite una, la activa."""
+    from app.core.config import get_settings
+
+    s = get_settings()
+    for campo in ("twilio_account_sid", "twilio_auth_token", "twilio_from_number", "gemini_api_key"):
+        monkeypatch.setattr(s, campo, "")
+    monkeypatch.setattr(s, "mail_enabled", False)
+
+
+@pytest.fixture(autouse=True)
+def encolados(monkeypatch) -> list[tuple[str, tuple]]:
+    """Las pruebas no mandan jobs al worker real: se registran (nombre de la tarea, argumentos)."""
+    from app.jobs import encolar as cola
+
+    registro: list[tuple[str, tuple]] = []
+    monkeypatch.setattr(cola, "encolar", lambda tarea, *args: registro.append((tarea.name.rsplit(".", 1)[-1], args)))
+    return registro
+
+
 @pytest.fixture
 def db(engine_pruebas) -> Iterator[Session]:
     conexion = engine_pruebas.connect()

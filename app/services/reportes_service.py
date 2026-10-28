@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 
 from app.core.excepciones import Conflicto, DatosInvalidos, NoEncontrado, SinPermiso
 from app.integrations import storage_client
+from app.jobs import encolar as cola
+from app.jobs.eventos.clasificar_reporte_ia import clasificar_reporte_ia
 from app.middlewares.role_middleware import (
     alcance_organizacion,
     es_super_admin,
@@ -43,6 +45,7 @@ from app.schemas.reportes_schema import (
     DuplicadoIn,
     RechazoIn,
     ReporteOrganizacionIn,
+    ReportePrioridadIn,
     TipoReporteOut,
     etiqueta_tipo,
     normalizar_tipo,
@@ -80,6 +83,10 @@ def a_salida(usuario: Usuario, reporte: Reporte) -> ReporteOut:
         direccion=reporte.direccion,
         ubicacion=reporte.ubicacion,
         estado=reporte.estado,
+        prioridad_ia=reporte.prioridad_ia,
+        prioridad_manual=reporte.prioridad_manual,
+        confianza_ia=reporte.confianza_ia,
+        razonamiento_ia=reporte.razonamiento_ia,
         organizacion_objetivo_id=reporte.organizacion_objetivo_id,
         organizacion_manual_id=reporte.organizacion_manual_id,
         verificado_por=reporte.verificado_por,
@@ -133,8 +140,9 @@ def crear(db: Session, usuario: Usuario, datos: ReporteIn, archivos: list[bytes]
         for ruta in guardados:
             storage_client.borrar(ruta)
         raise
-    # TODO (B3): DESPUÉS del commit, para que el job vea la fila:
-    #     notificar_voluntarios_cercanos.delay(str(reporte.id))
+    # Después del commit, para que el worker encuentre la fila: la IA sugiere prioridad y organización
+    cola.encolar(clasificar_reporte_ia, str(reporte.id))
+    # TODO (B3): notificar_voluntarios_cercanos.delay(str(reporte.id))
     return reporte
 
 
@@ -241,5 +249,14 @@ def asignar_organizacion(db: Session, usuario: Usuario, reporte_id: UUID, datos:
             codigo="REPORTE_CON_ASIGNACIONES",
         )
     reporte = repo.actualizar(db, reporte, organizacion_manual_id=organizacion.id)
+    db.commit()
+    return reporte
+
+
+def fijar_prioridad(db: Session, usuario: Usuario, reporte_id: UUID, datos: ReportePrioridadIn) -> Reporte:
+    """Administrador de la organización o super admin. Prevalece sobre la sugerencia de la IA."""
+    reporte = _bloquear(db, reporte_id)
+    verificar_misma_organizacion(usuario, organizacion_efectiva(reporte))
+    reporte = repo.actualizar(db, reporte, prioridad_manual=datos.prioridad_manual)
     db.commit()
     return reporte

@@ -12,7 +12,7 @@ from uuid import UUID
 from geoalchemy2.elements import WKBElement, WKTElement
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.enums import EstadoReporte
+from app.models.enums import EstadoReporte, PrioridadSolicitud
 from app.schemas.solicitudes_ayuda_schema import LatLng
 from app.utils.geo import latlng_desde_punto
 
@@ -88,6 +88,17 @@ class DuplicadoIn(BaseModel):
     duplicado_de_id: UUID
 
 
+class ReportePrioridadIn(BaseModel):
+    prioridad_manual: PrioridadSolicitud
+
+    @field_validator("prioridad_manual")
+    @classmethod
+    def _no_pendiente(cls, valor: PrioridadSolicitud) -> PrioridadSolicitud:
+        if valor == PrioridadSolicitud.PENDIENTE:
+            raise ValueError("Elige una prioridad: baja, media, alta o crítica")
+        return valor
+
+
 class ReporteOrganizacionIn(BaseModel):
     organizacion_id: UUID
 
@@ -113,6 +124,11 @@ class ReporteOut(BaseModel):
     direccion: str | None
     ubicacion: LatLng
     estado: EstadoReporte
+    # Sugerencia de la IA (o de las reglas); la prioridad manual del admin prevalece
+    prioridad_ia: PrioridadSolicitud
+    prioridad_manual: PrioridadSolicitud | None
+    confianza_ia: float | None
+    razonamiento_ia: str | None
     organizacion_objetivo_id: UUID | None
     organizacion_manual_id: UUID | None
     verificado_por: UUID | None

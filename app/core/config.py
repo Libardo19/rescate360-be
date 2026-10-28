@@ -18,10 +18,14 @@ class Settings(BaseSettings):
     jwt_access_expires_min: int = 30
     jwt_refresh_expires_days: int = 7
 
+    # IA (Gemini) que clasifica prioridad y organización de solicitudes y reportes.
+    # Sin clave, o si Gemini no responde, se clasifica con reglas (clasificador_reglas.py).
     gemini_api_key: str = ""
-    gemini_model: str = ""  
-    gemini_base_url: str = ""
-    gemini_timeout: int = 30
+    gemini_model: str = "gemini-3.5-flash-lite"
+    # Se prueban en orden si el principal está saturado o retirado (Google los rota seguido)
+    gemini_modelos_respaldo: list[str] = ["gemini-flash-lite-latest", "gemini-flash-latest"]
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_timeout: int = 20
     firebase_credentials_path: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""

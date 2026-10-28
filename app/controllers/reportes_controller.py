@@ -20,6 +20,7 @@ from app.schemas.reportes_schema import (
     ReporteIn,
     ReporteOrganizacionIn,
     ReporteOut,
+    ReportePrioridadIn,
     TipoReporteOut,
 )
 from app.services import reportes_service
@@ -112,3 +113,12 @@ def asignar_organizacion(
     db: Session = Depends(get_db),
 ) -> ReporteOut:
     return reportes_service.a_salida(usuario, reportes_service.asignar_organizacion(db, usuario, reporte_id, datos))
+
+
+def fijar_prioridad(
+    reporte_id: UUID,
+    datos: ReportePrioridadIn,
+    usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReporteOut:
+    return reportes_service.a_salida(usuario, reportes_service.fijar_prioridad(db, usuario, reporte_id, datos))

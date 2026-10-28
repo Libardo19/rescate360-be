@@ -51,3 +51,10 @@ router.patch(
     summary="Enrutar el reporte a una organización (super admin)",
     dependencies=[Depends(require_role(RolUsuario.SUPER_ADMIN))],
 )(reportes_controller.asignar_organizacion)
+
+router.patch(
+    "/{reporte_id}/prioridad",
+    response_model=ReporteOut,
+    summary="Prioridad manual (administrador); prevalece sobre la de la IA",
+    dependencies=_solo_admin,
+)(reportes_controller.fijar_prioridad)
