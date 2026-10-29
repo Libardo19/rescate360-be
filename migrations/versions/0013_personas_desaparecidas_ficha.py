@@ -15,6 +15,7 @@ Dev A (A5).
 - `ultima_ubicacion` deja de ser obligatoria: quien reporta casi nunca tiene las coordenadas
   del lugar; el lugar va como texto.
 - Estados: siguen `buscando` / `encontrado` (decisión del 27-oct); se agrega `encontrado_en`.
+- Extensión `unaccent`: la búsqueda por nombre no distingue tildes ("maria" encuentra a "María").
 """
 from collections.abc import Sequence
 
@@ -30,6 +31,7 @@ _TABLA = "personas_desaparecidas"
 
 
 def upgrade() -> None:
+    op.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
     op.alter_column(_TABLA, "caracteristicas", new_column_name="descripcion")
     op.alter_column(_TABLA, "foto_url", new_column_name="foto_ruta")
     op.alter_column(_TABLA, "ultima_ubicacion", nullable=True)
@@ -82,3 +84,4 @@ def downgrade() -> None:
     op.alter_column(_TABLA, "ultima_ubicacion", nullable=False)
     op.alter_column(_TABLA, "foto_ruta", new_column_name="foto_url")
     op.alter_column(_TABLA, "descripcion", new_column_name="caracteristicas")
+    op.execute("DROP EXTENSION IF EXISTS unaccent")
