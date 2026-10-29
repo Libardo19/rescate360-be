@@ -19,6 +19,7 @@ from app.routes import organizaciones_routes
 from app.routes import mapa_routes
 from app.routes import reportes_routes
 from app.routes import centros_ayuda_routes
+from app.routes import zonas_peligrosas_routes
 
 configurar_logging()
 
@@ -49,6 +50,7 @@ app.include_router(organizaciones_routes.router)
 app.include_router(mapa_routes.router)
 app.include_router(reportes_routes.router)
 app.include_router(centros_ayuda_routes.router)
+app.include_router(zonas_peligrosas_routes.router)
 
 # Fotos y videos subidos (evidencias). Con bucket, esto lo sirve el bucket y no la API.
 _uploads = Path(get_settings().uploads_dir)

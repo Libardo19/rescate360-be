@@ -2,8 +2,8 @@
 
 Escrita a mano (no autogenerate), como la 0006 y la 0007.
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0015
+Revises: 0014
 """
 import sqlalchemy as sa
 from alembic import op
