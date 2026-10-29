@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func, text
+from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,9 @@ class ZonaPeligrosa(Base):
         # Creados en la migración 0003
         Index("ix_zonas_peligrosas_organizacion_id", "organizacion_id"),
         Index("ix_zonas_peligrosas_area", "area", postgresql_using="gist"),
+        # Migración 0016: el mapa filtra por estado y ordena por actualizado_en
+        Index("ix_zonas_peligrosas_estado_actualizado", "estado", "actualizado_en"),
+        CheckConstraint("radio_m > 0 AND radio_m <= 100000", name="chk_zonas_peligrosas_radio"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
