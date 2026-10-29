@@ -5,8 +5,10 @@ Las rutas `/me/...` van antes que las de `/{usuario_id}` (A3) para que "me" no s
 
 from fastapi import APIRouter, Depends
 
-from app.controllers import usuarios_controller
+from app.controllers import contactos_emergencia_controller, datos_personales_controller, usuarios_controller
 from app.middlewares.role_middleware import ROLES_ADMIN, require_role
+from app.schemas.contactos_emergencia_schema import ContactoOut
+from app.schemas.datos_personales_schema import MisDatosOut
 from app.schemas.usuarios_schema import ConsentimientoOut, DispositivoOut, InvitacionOut, UbicacionOut, UsuarioOut
 from app.utils.paginacion import Pagina
 
@@ -43,6 +45,37 @@ router.post(
 router.delete(
     "/me/dispositivo/{token_push}", status_code=204, summary="Quitar el token push al cerrar sesión"
 )(usuarios_controller.eliminar_dispositivo)
+
+router.get(
+    "/me/contactos-emergencia", response_model=list[ContactoOut], summary="Mis contactos de emergencia"
+)(contactos_emergencia_controller.listar_contactos)
+
+router.post(
+    "/me/contactos-emergencia",
+    status_code=201,
+    response_model=ContactoOut,
+    summary="Agregar un contacto de emergencia (máximo 5; reciben el SMS del SOS)",
+)(contactos_emergencia_controller.crear_contacto)
+
+router.patch(
+    "/me/contactos-emergencia/{contacto_id}", response_model=ContactoOut, summary="Editar un contacto de emergencia"
+)(contactos_emergencia_controller.actualizar_contacto)
+
+router.delete(
+    "/me/contactos-emergencia/{contacto_id}", status_code=204, summary="Quitar un contacto de emergencia"
+)(contactos_emergencia_controller.eliminar_contacto)
+
+# --- Ley 1581: conocer y suprimir mis datos ---
+
+router.get(
+    "/me/datos", response_model=MisDatosOut, summary="Exportar todos mis datos personales (Ley 1581)"
+)(datos_personales_controller.exportar_mis_datos)
+
+router.delete(
+    "/me",
+    status_code=204,
+    summary="Eliminar mi cuenta: anonimiza mis datos y la bloquea (pide la contraseña)",
+)(datos_personales_controller.eliminar_mi_cuenta)
 
 # --- Gestión desde el panel: administrador (su organización) y super admin ---
 
