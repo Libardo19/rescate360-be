@@ -16,6 +16,7 @@ from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.centro_ayuda import CentroAyuda
 from app.models.alerta import Alerta
 from app.models.zona_peligrosa import ZonaPeligrosa
+from app.models.campana import Campana
 from app.models.donacion import Donacion
 from app.models.guia_emergencia import GuiaEmergencia
 from app.models.cola_alerta_offline import ColaAlertaOffline
@@ -39,6 +40,7 @@ __all__ = [
     "CentroAyuda",
     "Alerta",
     "ZonaPeligrosa",
+    "Campana",
     "Donacion",
     "GuiaEmergencia",
     "ColaAlertaOffline",

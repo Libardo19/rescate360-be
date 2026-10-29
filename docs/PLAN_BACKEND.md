@@ -349,3 +349,21 @@ Para no bloquearse en el sprint 1:
 - [ ] Tests del módulo pasan: `docker compose exec api pytest`.
 - [ ] Si agregó dependencias: `pip check` limpio.
 - [ ] Avisar a Oscar o Elkin qué endpoints quedaron listos para conectar.
+
+---
+
+## Estado al 29-oct-2026 (cierre del Sprint 4)
+
+Desde el 29-oct, Sergio ya no toca backend: B3, B5, B6 y B7 pasaron a Dev A, junto con dos módulos que no estaban en el plan (sismos y "¿Estás bien?"). La migración 0016 también la hizo Dev A.
+
+| Tarea | Estado | Migración |
+|---|---|---|
+| A7 auditoría y guía de emergencia | ✅ | (sin migración) |
+| B3 alertas por zona + push (`firebase_client`; sin credenciales solo escribe en el log) | ✅ | 0016 (zonas) y 0017 |
+| B8 **nuevo**: sismos (feed del USGS cada minuto, alerta automática desde M4.5, simulacro) | ✅ | 0018 |
+| "¿Estás bien?" (check-ins con vencimiento y SMS a los contactos) | ✅ | 0019 |
+| B7 ampliado: `/offline/sync` + `/offline/relevo` (Bluetooth), firma HMAC, origen `mesh` | ✅ | 0020 |
+| B5 campañas y donaciones (sin cobros en la app) | ✅ | 0021 |
+| B6 jobs programados: expirar alertas, reportes no verificables a las 72 h, retención | ✅ | — |
+| Seed de demo (`scripts/seed/datos_demo.py`) y matriz de permisos por rol | ✅ | — |
+| **Pendiente (Sergio):** proyecto de Firebase, credenciales y prueba real del push | ⏳ | — |

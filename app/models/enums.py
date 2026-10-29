@@ -148,3 +148,9 @@ class EstadoCheckIn(str, enum.Enum):
     A_SALVO = "a_salvo"
     NECESITO_AYUDA = "necesito_ayuda"
     SIN_RESPUESTA = "sin_respuesta"
+
+
+class EstadoDonacion(str, enum.Enum):
+    RECIBIDA = "recibida"
+    EN_PROCESO = "en_proceso"
+    ENTREGADA = "entregada"

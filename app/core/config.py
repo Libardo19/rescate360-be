@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     super_admin_nombre: str = "Super Admin"
     super_admin_email: str = ""
     super_admin_password: str = ""
+    # Contraseña de los usuarios de demo (scripts/seed/datos_demo.py). Solo en .env
+    seed_demo_password: str = ""
 
 
 @lru_cache
