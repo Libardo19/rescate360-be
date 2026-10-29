@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.excepciones import Conflicto, NoEncontrado, SinPermiso
 from app.jobs import encolar as cola
 from app.jobs.eventos.clasificar_prioridad_ia import clasificar_prioridad_ia
+from app.jobs.eventos.enviar_sms_respaldo import enviar_sms_respaldo
 from app.middlewares.role_middleware import alcance_organizacion, solo_propio, verificar_misma_organizacion
 from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
@@ -79,7 +80,8 @@ def crear_sos(db: Session, usuario: Usuario, datos: SolicitudSOSIn) -> Solicitud
     db.commit()
     # La prioridad ya es crítica; el job solo la enruta a una organización de rescate
     cola.encolar(clasificar_prioridad_ia, str(solicitud.id))
-    # TODO (B3): enviar_sms_respaldo.delay(str(solicitud.id)) -> SMS a los contactos de emergencia
+    # SMS a los contactos de emergencia: llega aunque no tengan la app ni internet
+    cola.encolar(enviar_sms_respaldo, str(solicitud.id))
     return solicitud
 
 

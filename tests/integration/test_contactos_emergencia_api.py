@@ -68,3 +68,79 @@ def test_no_se_ven_ni_tocan_los_de_otro(cliente, crear_usuario, headers_de):
 
 def test_sin_sesion(cliente):
     assert cliente.get(URL).status_code == 401
+
+
+# --- SMS del SOS ---
+
+
+class _SesionDePrueba:
+    def __init__(self, db):
+        self._db = db
+
+    def __getattr__(self, nombre):
+        return getattr(self._db, nombre)
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def sms(db, monkeypatch):
+    from app.jobs.eventos import enviar_sms_respaldo as job
+
+    enviados: list[tuple[str, str]] = []
+    monkeypatch.setattr(job, "SessionLocal", lambda: _SesionDePrueba(db))
+    monkeypatch.setattr(job, "enviar_sms", lambda telefono, texto: enviados.append((telefono, texto)))
+    return job, enviados
+
+
+def test_el_sos_encola_el_sms_y_llega_a_cada_contacto(cliente, crear_usuario, headers_de, encolados, sms):
+    job, enviados = sms
+    usuario = crear_usuario()
+    h = headers_de(usuario)
+    _crear(cliente, h)
+    _crear(cliente, h, nombre="Ana", telefono="+573109876543")
+    sid = cliente.post("/solicitudes-ayuda/sos", json={"ubicacion": {"lat": 10.4631, "lng": -73.2532}}, headers=h).json()["id"]
+    assert ("enviar_sms_respaldo", (sid,)) in encolados
+
+    resultado = job.enviar_sms_respaldo.run(sid)
+    assert resultado["enviados"] == 2
+    assert [t for t, _ in enviados] == ["+573001234567", "+573109876543"]
+    assert usuario.nombre in enviados[0][1] and "10.46310,-73.25320" in enviados[0][1] and "123" in enviados[0][1]
+
+
+def test_sin_contactos_o_sin_sos_no_se_envia_nada(cliente, crear_usuario, headers_de, encolados, sms):
+    job, enviados = sms
+    h = headers_de(crear_usuario())
+    sid = cliente.post("/solicitudes-ayuda/sos", json={"ubicacion": {"lat": 10.4, "lng": -73.2}}, headers=h).json()["id"]
+    assert job.enviar_sms_respaldo.run(sid)["status"] == "sin_contactos"
+
+    _crear(cliente, h)
+    normal = cliente.post(
+        "/solicitudes-ayuda",
+        json={"descripcion": "Necesito agua", "tipo": "alimentaria", "ubicacion": {"lat": 10.4, "lng": -73.2}},
+        headers=h,
+    ).json()["id"]
+    assert not any(n == "enviar_sms_respaldo" and a == (normal,) for n, a in encolados)
+    assert job.enviar_sms_respaldo.run(normal)["status"] == "no_aplica"
+    assert enviados == []
+
+
+def test_un_contacto_que_falla_no_frena_a_los_demas(cliente, crear_usuario, headers_de, encolados, sms, monkeypatch):
+    from app.integrations.twilio_client import ErrorSMS
+
+    job, _ = sms
+    llegaron = []
+
+    def _enviar(telefono, texto):
+        if telefono == "+573001234567":
+            raise ErrorSMS("número inválido")
+        llegaron.append(telefono)
+
+    monkeypatch.setattr(job, "enviar_sms", _enviar)
+    h = headers_de(crear_usuario())
+    _crear(cliente, h)
+    _crear(cliente, h, nombre="Ana", telefono="+573109876543")
+    sid = cliente.post("/solicitudes-ayuda/sos", json={"ubicacion": {"lat": 10.4, "lng": -73.2}}, headers=h).json()["id"]
+    assert job.enviar_sms_respaldo.run(sid)["enviados"] == 1
+    assert llegaron == ["+573109876543"]
