@@ -6,9 +6,10 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoReporte, EstadoSolicitud
+from app.models.enums import EstadoReporte, EstadoSolicitud, EstadoZona
 from app.models.reporte import Reporte
 from app.models.solicitud_ayuda import SolicitudAyuda
+from app.models.zona_peligrosa import ZonaPeligrosa
 from app.utils.geo import cerca_de
 
 # Tope de puntos por capa en una respuesta: el mapa no necesita más y protege la API
@@ -16,6 +17,7 @@ MAXIMO_POR_CAPA = 500
 
 SOLICITUDES_ABIERTAS = (EstadoSolicitud.PENDIENTE, EstadoSolicitud.EN_PROCESO)
 REPORTES_ABIERTOS = (EstadoReporte.PENDIENTE, EstadoReporte.VERIFICADO)
+ZONAS_VIGENTES = (EstadoZona.ACTIVA, EstadoZona.EN_MONITOREO)
 
 
 def _filtros_comunes(modelo, abiertos, *, centro, radio_m, desde) -> list:
@@ -64,5 +66,30 @@ def listar_reportes(
             visibles.append(organizacion_efectiva == organizacion_id)
         filtros.append(or_(*visibles))
     consulta = select(Reporte).where(*filtros).order_by(Reporte.actualizado_en.desc()).limit(MAXIMO_POR_CAPA)
+    return list(db.scalars(consulta).all())
+
+
+def listar_zonas(
+    db: Session, *, centro: tuple[float, float] | None, radio_m: float, desde: datetime | None
+) -> list[ZonaPeligrosa]:
+    """Las zonas son públicas: no se filtran por organización.
+
+    Sin `desde` se muestran solo las vigentes. Con `desde` llegan también las inactivas que
+    cambiaron, para que el cliente las quite del mapa.
+    """
+    filtros = []
+    if centro is not None:
+        filtros.append(cerca_de(ZonaPeligrosa.area, centro[0], centro[1], radio_m))
+    if desde is None:
+        filtros.append(ZonaPeligrosa.estado.in_(ZONAS_VIGENTES))
+    else:
+        filtros.append(ZonaPeligrosa.actualizado_en > desde)
+
+    consulta = (
+        select(ZonaPeligrosa)
+        .where(*filtros)
+        .order_by(ZonaPeligrosa.actualizado_en.desc())
+        .limit(MAXIMO_POR_CAPA)
+    )
     return list(db.scalars(consulta).all())
 

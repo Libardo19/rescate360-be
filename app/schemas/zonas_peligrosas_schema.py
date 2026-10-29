@@ -63,10 +63,8 @@ class ZonaPeligrosaOut(BaseModel):
     descripcion: str | None
     estado: EstadoZona
     zona: ZonaCirculo
-    organizacion_id: UUID | None
-    gestionado_por: UUID
     actualizado_en: datetime
-    # True = es de mi organización (o soy super_admin): puedo editarla
+    # True = puedo editarla: soy administrador de su organización o super_admin
     propia: bool = False
     # Solo si se consultó con lat y lng: metros hasta el borde del círculo (0 si estoy dentro)
     distancia_m: float | None = None
@@ -78,8 +76,7 @@ class ZonaPeligrosaOut(BaseModel):
         if isinstance(valor, dict):
             return valor
         campos = (
-            "id", "nombre", "tipo_riesgo", "nivel", "descripcion", "estado",
-            "organizacion_id", "gestionado_por", "actualizado_en",
+            "id", "nombre", "tipo_riesgo", "nivel", "descripcion", "estado", "actualizado_en",
         )
         datos = {campo: getattr(valor, campo) for campo in campos}
         datos["zona"] = {**latlng_desde_punto(valor.centro), "radio_m": valor.radio_m}

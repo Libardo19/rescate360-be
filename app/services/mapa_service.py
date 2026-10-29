@@ -7,6 +7,8 @@ Reglas:
   gente pidiendo ayuda, no QUIÉN ni QUÉ (requisito de ubicación del plan, Ley 1581).
 - Los reportes sin verificar solo los ve quien los hizo, su organización y el super admin;
   los verificados son públicos (el filtro está en el repository).
+- Las zonas son públicas: todos ven el círculo exacto y el detalle. `propio` solo indica
+  si el usuario puede editarlas (administrador de su organización o super admin).
 - Polling: el cliente manda `desde` con el `generado_en` de la respuesta anterior y recibe
   solo lo que cambió, incluido lo que se cerró (`activo=False`) para quitarlo del mapa.
 """
@@ -22,10 +24,11 @@ from app.models.enums import RolUsuario
 from app.models.reporte import Reporte
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
+from app.models.zona_peligrosa import ZonaPeligrosa
 from app.repositories import mapa_repository as repo
 from app.schemas.mapa_schema import CAPAS_MAPA, MapaOut, PuntoMapa
 from app.schemas.reportes_schema import etiqueta_tipo
-from app.services import reportes_service
+from app.services import reportes_service, zonas_peligrosas_service
 from app.services.solicitudes_ayuda_service import organizacion_efectiva
 from app.utils.geo import latlng_desde_punto
 
@@ -114,6 +117,27 @@ def _punto_reporte(usuario: Usuario, reporte: Reporte) -> PuntoMapa:
     )
 
 
+def _punto_zona(usuario: Usuario, zona: ZonaPeligrosa) -> PuntoMapa:
+    posicion = latlng_desde_punto(zona.centro)
+    return PuntoMapa(
+        id=zona.id,
+        capa="zona",
+        tipo=zona.tipo_riesgo,
+        titulo=zona.nombre,
+        detalle=_corto(zona.descripcion or "Zona de riesgo"),
+        estado=zona.estado.value,
+        prioridad=zona.nivel.value,
+        lat=posicion["lat"],
+        lng=posicion["lng"],
+        radio_m=zona.radio_m,
+        # Las zonas son información pública: el círculo exacto se muestra a todos
+        aproximada=False,
+        propio=zonas_peligrosas_service.es_propia(usuario, zona),
+        activo=zona.estado in repo.ZONAS_VIGENTES,
+        actualizado_en=zona.actualizado_en,
+    )
+
+
 def obtener_mapa(
     db: Session,
     usuario: Usuario,
@@ -148,5 +172,8 @@ def obtener_mapa(
             todos=es_super_admin(usuario),
         )
         puntos += [_punto_reporte(usuario, r) for r in reportes]
-    # centros, zonas y alertas: se suman cuando existan sus módulos (B3, B4, B5)
+    if "zonas" in pedidas:
+        zonas = repo.listar_zonas(db, centro=centro, radio_m=radio_m, desde=filtro_desde)
+        puntos += [_punto_zona(usuario, z) for z in zonas]
+    # centros y alertas: se suman cuando existan sus módulos (B3, B4)
     return MapaOut(puntos=puntos, generado_en=generado_en)

@@ -18,10 +18,14 @@ RADIO_BUSQUEDA_MAXIMO_M = 50_000
 
 
 def es_propia(usuario: Usuario, zona: ZonaPeligrosa) -> bool:
-    """True si la zona es de mi organización (o soy super_admin). Lo usa también el mapa."""
+    """True si el usuario puede modificar la zona: admin de su organización o super_admin."""
     if usuario.rol == RolUsuario.SUPER_ADMIN:
         return True
-    return usuario.organizacion_id is not None and zona.organizacion_id == usuario.organizacion_id
+    return (
+        usuario.rol == RolUsuario.ADMINISTRADOR
+        and usuario.organizacion_id is not None
+        and zona.organizacion_id == usuario.organizacion_id
+    )
 
 
 def organizacion_visible(usuario: Usuario, alcance: Literal["organizacion", "todas"]) -> UUID | None:
@@ -36,11 +40,15 @@ def organizacion_visible(usuario: Usuario, alcance: Literal["organizacion", "tod
 
 
 def estados_visibles(usuario: Usuario, estado: EstadoZona | None) -> tuple[EstadoZona, ...]:
-    """Estados que entran en el listado. Por defecto, las vigentes. Solo administrador y super_admin
-    pueden pedir un estado concreto (por ejemplo inactiva); para el resto ese pedido da vacío."""
+    """Estados que entran en el listado.
+
+    Por defecto, administrador y super_admin ven todos los estados (incluidas las inactivas);
+    ciudadano y voluntario ven solo las vigentes. Un estado concreto solo lo puede pedir
+    administrador o super_admin; para el resto ese pedido da vacío.
+    """
     permitidos = tuple(EstadoZona) if usuario.rol in ROLES_QUE_GESTIONAN else VIGENTES
     if estado is None:
-        return VIGENTES
+        return permitidos
     return (estado,) if estado in permitidos else ()
 
 

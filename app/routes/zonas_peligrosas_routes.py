@@ -12,7 +12,7 @@ router = APIRouter(prefix="/zonas-peligrosas", tags=["zonas-peligrosas"])
 router.get(
     "",
     response_model=Pagina[ZonaPeligrosaOut],
-    summary="Zonas peligrosas vigentes (con lat y lng, por cercanía)",
+    summary="Zonas peligrosas visibles según el rol (con lat y lng, por cercanía)",
 )(zonas_peligrosas_controller.listar_zonas)
 
 router.post(

@@ -39,8 +39,13 @@ def test_los_demas_roles_ven_todas(rol):
 # --- estados ---------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("rol", list(RolUsuario))
-def test_por_defecto_salen_las_vigentes(rol):
+@pytest.mark.parametrize("rol", [RolUsuario.ADMINISTRADOR, RolUsuario.SUPER_ADMIN])
+def test_admin_y_super_admin_ven_todos_los_estados_por_defecto(rol):
+    assert service.estados_visibles(_usuario(rol), None) == tuple(EstadoZona)
+
+
+@pytest.mark.parametrize("rol", [RolUsuario.CIUDADANO, RolUsuario.VOLUNTARIO])
+def test_ciudadano_y_voluntario_ven_las_vigentes_por_defecto(rol):
     assert service.estados_visibles(_usuario(rol), None) == (EstadoZona.ACTIVA, EstadoZona.EN_MONITOREO)
 
 
@@ -68,7 +73,7 @@ def test_es_propia():
     zona = SimpleNamespace(organizacion_id=org)
     assert service.es_propia(_usuario(RolUsuario.SUPER_ADMIN), zona) is True
     assert service.es_propia(_usuario(RolUsuario.ADMINISTRADOR, org), zona) is True
-    assert service.es_propia(_usuario(RolUsuario.VOLUNTARIO, org), zona) is True
+    assert service.es_propia(_usuario(RolUsuario.VOLUNTARIO, org), zona) is False
     assert service.es_propia(_usuario(RolUsuario.ADMINISTRADOR, uuid4()), zona) is False
     assert service.es_propia(_usuario(RolUsuario.CIUDADANO), zona) is False
 

@@ -1,10 +1,11 @@
 """Pruebas de la API de zonas peligrosas (TestClient + BD de pruebas)."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 from app.models.enums import RolUsuario
+from app.models.zona_peligrosa import ZonaPeligrosa
 
 URL = "/zonas-peligrosas"
 ZONA = {"lat": 10.4631, "lng": -73.2532, "radio_m": 800}
@@ -37,13 +38,16 @@ def _ids(respuesta) -> list[str]:
 # --- crear -----------------------------------------------------------------------------------
 
 
-def test_administrador_crea_zona_de_su_organizacion(cliente, crear_usuario, headers_de):
+def test_administrador_crea_zona_de_su_organizacion(cliente, db, crear_usuario, headers_de):
     admin = crear_usuario(RolUsuario.ADMINISTRADOR)
 
     zona = _crear(cliente, headers_de(admin))
 
-    assert zona["organizacion_id"] == str(admin.organizacion_id)
-    assert zona["gestionado_por"] == str(admin.id)
+    creada = db.get(ZonaPeligrosa, UUID(zona["id"]))
+    assert creada.organizacion_id == admin.organizacion_id
+    assert creada.gestionado_por == admin.id
+    assert "organizacion_id" not in zona
+    assert "gestionado_por" not in zona
     assert zona["nombre"] == "Ribera del río"
     assert zona["tipo_riesgo"] == "Desbordamiento del río Guatapurí"  # texto libre, más de 30 caracteres
     assert zona["nivel"] == "alto"
@@ -76,15 +80,15 @@ def test_administrador_no_puede_elegir_otra_organizacion(cliente, crear_usuario,
     assert r.json()["codigo"] == "ZONA_ORGANIZACION_NO_PERMITIDA"
 
 
-def test_super_admin_crea_zona_global_o_de_una_organizacion(cliente, crear_usuario, headers_de):
+def test_super_admin_crea_zona_global_o_de_una_organizacion(cliente, db, crear_usuario, headers_de):
     super_admin = crear_usuario(RolUsuario.SUPER_ADMIN)
     admin = crear_usuario(RolUsuario.ADMINISTRADOR)
 
     global_ = _crear(cliente, headers_de(super_admin))
     de_org = _crear(cliente, headers_de(super_admin), organizacion_id=str(admin.organizacion_id))
 
-    assert global_["organizacion_id"] is None
-    assert de_org["organizacion_id"] == str(admin.organizacion_id)
+    assert db.get(ZonaPeligrosa, UUID(global_["id"])).organizacion_id is None
+    assert db.get(ZonaPeligrosa, UUID(de_org["id"])).organizacion_id == admin.organizacion_id
 
 
 def test_super_admin_con_organizacion_inexistente_responde_422(cliente, crear_usuario, headers_de):
@@ -138,13 +142,14 @@ def test_ciudadano_y_voluntario_ven_zonas_vigentes_de_cualquier_organizacion(cli
         assert monitoreo["id"] in ids
 
 
-def test_las_inactivas_no_se_listan_por_defecto(cliente, crear_usuario, headers_de):
+def test_admin_ve_inactivas_por_defecto_pero_ciudadano_y_voluntario_no(cliente, crear_usuario, headers_de):
     admin = crear_usuario(RolUsuario.ADMINISTRADOR)
     zona = _crear(cliente, headers_de(admin))
     _modificar(cliente, headers_de(admin), zona["id"], estado="inactiva")
 
-    assert zona["id"] not in _ids(cliente.get(URL, headers=headers_de(admin)))
-    assert zona["id"] not in _ids(cliente.get(URL, headers=headers_de(crear_usuario())))
+    assert zona["id"] in _ids(cliente.get(URL, headers=headers_de(admin)))
+    assert zona["id"] not in _ids(cliente.get(URL, headers=headers_de(crear_usuario(RolUsuario.CIUDADANO))))
+    assert zona["id"] not in _ids(cliente.get(URL, headers=headers_de(crear_usuario(RolUsuario.VOLUNTARIO))))
 
 
 def test_administrador_puede_pedir_las_inactivas_pero_el_ciudadano_no(cliente, crear_usuario, headers_de):
@@ -194,10 +199,11 @@ def test_super_admin_ve_todas(cliente, crear_usuario, headers_de):
     assert a["id"] in ids and b["id"] in ids
 
 
-def test_ciudadano_y_voluntario_no_son_dueños_de_ninguna_zona(cliente, crear_usuario, headers_de):
+@pytest.mark.parametrize("rol", [RolUsuario.CIUDADANO, RolUsuario.VOLUNTARIO])
+def test_ciudadano_y_voluntario_no_son_dueños_de_ninguna_zona(cliente, crear_usuario, headers_de, rol):
     zona = _crear(cliente, headers_de(crear_usuario(RolUsuario.ADMINISTRADOR)))
 
-    r = cliente.get(URL, headers=headers_de(crear_usuario()))
+    r = cliente.get(URL, headers=headers_de(crear_usuario(rol)))
 
     assert {z["id"]: z for z in r.json()["items"]}[zona["id"]]["propia"] is False
 
@@ -371,6 +377,12 @@ def test_las_zonas_salen_en_el_mapa_con_su_circulo(cliente, crear_usuario, heade
     # Es información pública: el ciudadano la ve, pero no es suya
     punto_ciudadano = {p["id"]: p for p in del_ciudadano.json()["puntos"]}[zona["id"]]
     assert punto_ciudadano["propio"] is False
+    # El voluntario de la misma organización tampoco puede editarla
+    voluntario = crear_usuario(RolUsuario.VOLUNTARIO, admin.organizacion)
+    del_voluntario = cliente.get("/mapa", params=consulta, headers=headers_de(voluntario))
+    punto_voluntario = {p["id"]: p for p in del_voluntario.json()["puntos"]}[zona["id"]]
+    assert punto_voluntario["propio"] is False
+    assert punto_voluntario["lat"] == pytest.approx(10.4631)
 
 
 def test_una_zona_desactivada_llega_al_mapa_como_inactiva_en_el_polling(cliente, crear_usuario, headers_de):

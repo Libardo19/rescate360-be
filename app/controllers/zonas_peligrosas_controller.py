@@ -30,7 +30,10 @@ def listar_zonas(
     alcance: Literal["organizacion", "todas"] = Query(
         "organizacion", description="Solo administrador: 'todas' muestra también las de otras organizaciones"
     ),
-    estado: EstadoZona | None = Query(None, description="Por defecto, las vigentes. Solo administrador y super_admin"),
+    estado: EstadoZona | None = Query(
+        None,
+        description="Por defecto: admin y super_admin ven todos los estados; los demás, solo las vigentes",
+    ),
     pag: Paginacion = Depends(paginacion),
     usuario: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
