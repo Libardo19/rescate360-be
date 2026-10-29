@@ -47,7 +47,7 @@ class Reporte(Base):
     organizacion_objetivo_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("organizaciones.id"), nullable=True
     )
-    # Clasificación de la IA (migración 0011). La prioridad manual del admin prevalece.
+    # Clasificación de la IA (migración 0012). La prioridad manual del admin prevalece.
     prioridad_ia: Mapped[PrioridadSolicitud] = mapped_column(
         pg_enum(PrioridadSolicitud, "prioridad_solicitud"),
         nullable=False, default=PrioridadSolicitud.PENDIENTE, server_default=PrioridadSolicitud.PENDIENTE.value,
