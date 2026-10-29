@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     foto_max_mb: int = 5
     video_max_mb: int = 30
 
+    # Sismos (feed público del USGS; el del SGC se usa si expone uno consumible)
+    sismos_feed_url: str = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
+    # Desde esta magnitud se publica la alerta y se pregunta "¿Estás bien?" a quien esté cerca
+    sismos_magnitud_alerta: float = 4.5
+    # Minutos para responder el "¿Estás bien?" antes de avisar a los contactos de emergencia
+    check_in_minutos: int = 10
+
     retencion_fotos_dias: int = 90
     retencion_ubicaciones_dias: int = 30
 

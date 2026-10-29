@@ -19,6 +19,8 @@ JOBS = [
     "app.jobs.programados.limpiar_datos_retencion",
     "app.jobs.programados.marcar_reportes_no_verificables",
     "app.jobs.programados.recalcular_estadisticas",
+    "app.jobs.programados.sincronizar_sismos",
+    "app.jobs.programados.vencer_check_ins",
 ]
 
 celery_app = Celery("rescate360", broker=settings.redis_url, backend=settings.redis_url, include=JOBS)

@@ -22,7 +22,7 @@ def crear(
     lng: float,
     radio_m: float,
     expira_en: datetime,
-    creado_por: UUID,
+    creado_por: UUID | None,
     organizacion_id: UUID | None,
     origen: str = "manual",
 ) -> Alerta:

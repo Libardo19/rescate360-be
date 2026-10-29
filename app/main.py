@@ -21,6 +21,7 @@ from app.routes import reportes_routes
 from app.routes import centros_ayuda_routes
 from app.routes import zonas_peligrosas_routes
 from app.routes import alertas_routes
+from app.routes import sismos_routes
 from app.routes import personas_desaparecidas_routes
 from app.routes import dashboard_routes
 from app.routes import auditoria_routes
@@ -57,6 +58,7 @@ app.include_router(reportes_routes.router)
 app.include_router(centros_ayuda_routes.router)
 app.include_router(zonas_peligrosas_routes.router)
 app.include_router(alertas_routes.router)
+app.include_router(sismos_routes.router)
 app.include_router(personas_desaparecidas_routes.router)
 app.include_router(dashboard_routes.router)
 app.include_router(auditoria_routes.router)

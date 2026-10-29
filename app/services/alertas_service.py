@@ -58,7 +58,7 @@ def _organizacion_destino(db: Session, usuario: Usuario, solicitada: UUID | None
 def publicar(
     db: Session,
     *,
-    creado_por: UUID,
+    creado_por: UUID | None,
     organizacion_id: UUID | None,
     titulo: str,
     tipo: str,
