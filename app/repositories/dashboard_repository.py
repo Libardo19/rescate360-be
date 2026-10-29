@@ -1,6 +1,5 @@
 """Conteos del dashboard. `organizacion_id=None` = todo el sistema (super admin)."""
 
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -10,6 +9,7 @@ from app.models.alerta import Alerta
 from app.models.asignacion import Asignacion
 from app.models.centro_ayuda import CentroAyuda
 from app.models.enums import (
+    EstadoAlerta,
     EstadoAsignacion,
     EstadoCasoPersona,
     EstadoReporte,
@@ -26,9 +26,6 @@ from app.repositories.reportes_repository import ORGANIZACION_EFECTIVA as ORG_RE
 
 SOLICITUDES_ACTIVAS = (EstadoSolicitud.PENDIENTE, EstadoSolicitud.EN_PROCESO)
 ORG_SOLICITUD = func.coalesce(SolicitudAyuda.organizacion_manual_id, SolicitudAyuda.organizacion_objetivo_id)
-# Las alertas todavía no tienen estado ni vencimiento (llegan con B3): mientras tanto,
-# "activa" = creada en las últimas 24 horas
-VIGENCIA_ALERTA = timedelta(hours=24)
 
 
 def _contar(db: Session, modelo, *filtros) -> int:
@@ -50,7 +47,7 @@ def solicitudes_activas(db: Session, organizacion_id: UUID | None) -> int:
 
 
 def alertas_activas(db: Session, organizacion_id: UUID | None) -> int:
-    filtros = [Alerta.creado_en >= datetime.now(UTC) - VIGENCIA_ALERTA]
+    filtros = [Alerta.estado == EstadoAlerta.ACTIVA]
     if organizacion_id is not None:
         filtros.append(Alerta.organizacion_id == organizacion_id)
     return _contar(db, Alerta, *filtros)

@@ -1,11 +1,14 @@
 """Dashboard por rol (A7, backend): alcance de cada rol, conteos y actividad reciente."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from app.models.alerta import Alerta
 from app.models.asignacion import Asignacion
 from app.models.centro_ayuda import CentroAyuda
 from app.models.enums import (
+    EstadoAlerta,
     EstadoAsignacion,
     EstadoCasoPersona,
     EstadoReporte,
@@ -59,8 +62,13 @@ def escenario(db, crear_usuario, crear_organizacion):
     db.add(Asignacion(voluntario_id=voluntario_a.id, solicitud_id=tomada.id, estado_asignacion=EstadoAsignacion.ACTIVA))
     db.add(CentroAyuda(nombre="Albergue", tipo="albergue", ubicacion=punto_desde_latlng(*PUNTO),
                        gestionado_por=voluntario_a.id, organizacion_id=org_a.id))
-    db.add(Alerta(tipo="inundacion", mensaje="Creciente del río", zona_afectada=circulo_a_poligono(*PUNTO, 500),
-                  creado_por=voluntario_a.id, organizacion_id=org_a.id))
+    db.add(Alerta(titulo="Creciente", tipo="inundacion", mensaje="Creciente del río", centro=punto_desde_latlng(*PUNTO),
+                  radio_m=500, zona_afectada=circulo_a_poligono(*PUNTO, 500),
+                  expira_en=datetime.now(UTC) + timedelta(hours=6), creado_por=voluntario_a.id, organizacion_id=org_a.id))
+    # Una cancelada no cuenta como activa
+    db.add(Alerta(titulo="Vieja", tipo="clima", mensaje="Ya pasó", centro=punto_desde_latlng(*PUNTO), radio_m=500,
+                  zona_afectada=circulo_a_poligono(*PUNTO, 500), estado=EstadoAlerta.CANCELADA,
+                  expira_en=datetime.now(UTC), creado_por=voluntario_a.id, organizacion_id=org_a.id))
     db.add(PersonaDesaparecida(reportado_por=ciudadano.id, nombre="Ana", descripcion="Cabello corto"))
     db.add(PersonaDesaparecida(reportado_por=ciudadano.id, nombre="Luis", descripcion="Alto",
                                estado_caso=EstadoCasoPersona.ENCONTRADO))

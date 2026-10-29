@@ -23,6 +23,7 @@ from app.core.excepciones import Conflicto, DatosInvalidos, NoEncontrado, SinPer
 from app.integrations import storage_client
 from app.jobs import encolar as cola
 from app.jobs.eventos.clasificar_reporte_ia import clasificar_reporte_ia
+from app.jobs.eventos.notificar_voluntarios_cercanos import notificar_voluntarios_cercanos
 from app.middlewares.role_middleware import (
     alcance_organizacion,
     es_super_admin,
@@ -141,8 +142,8 @@ def crear(db: Session, usuario: Usuario, datos: ReporteIn, archivos: list[bytes]
             storage_client.borrar(ruta)
         raise
     # Después del commit, para que el worker encuentre la fila: la IA sugiere prioridad y organización
+    # Al terminar, la clasificación avisa a los voluntarios cercanos de la organización elegida
     cola.encolar(clasificar_reporte_ia, str(reporte.id))
-    # TODO (B3): notificar_voluntarios_cercanos.delay(str(reporte.id))
     return reporte
 
 
@@ -250,6 +251,7 @@ def asignar_organizacion(db: Session, usuario: Usuario, reporte_id: UUID, datos:
         )
     reporte = repo.actualizar(db, reporte, organizacion_manual_id=organizacion.id)
     db.commit()
+    cola.encolar(notificar_voluntarios_cercanos, str(reporte.id))
     return reporte
 
 

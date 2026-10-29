@@ -6,7 +6,8 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.enums import EstadoReporte, EstadoSolicitud, EstadoZona
+from app.models.alerta import Alerta
+from app.models.enums import EstadoAlerta, EstadoReporte, EstadoSolicitud, EstadoZona
 from app.models.reporte import Reporte
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.zona_peligrosa import ZonaPeligrosa
@@ -96,3 +97,18 @@ def listar_zonas(
     )
     return list(db.scalars(consulta).all())
 
+
+def listar_alertas(
+    db: Session, *, centro: tuple[float, float] | None, radio_m: float, desde: datetime | None
+) -> list[Alerta]:
+    """Las alertas activas son públicas. Con `desde` llegan también las que vencieron o se cancelaron."""
+    filtros = _filtros_comunes(
+        Alerta,
+        (EstadoAlerta.ACTIVA,),
+        centro=centro,
+        radio_m=radio_m,
+        desde=desde,
+        columna_geo=Alerta.zona_afectada,
+    )
+    consulta = select(Alerta).where(*filtros).order_by(Alerta.actualizado_en.desc()).limit(MAXIMO_POR_CAPA)
+    return list(db.scalars(consulta).all())
