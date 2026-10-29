@@ -7,13 +7,13 @@ from uuid import UUID
 from pydantic import BaseModel
 
 CapaMapa = Literal["solicitudes", "reportes", "centros", "zonas", "alertas"]
-CAPAS_MAPA: tuple[str, ...] = ("solicitudes", "reportes", "centros", "zonas", "alertas")
+CAPAS_MAPA: tuple[str, ...] = ("solicitudes", "reportes", "centros", "zonas", "alertas", "sismos")
 CAPAS_POR_DEFECTO = "solicitudes,reportes"
 
 
 class PuntoMapa(BaseModel):
     id: UUID
-    capa: Literal["solicitud", "reporte", "centro", "zona", "alerta"]
+    capa: Literal["solicitud", "reporte", "centro", "zona", "alerta", "sismo"]
     tipo: str
     titulo: str
     detalle: str

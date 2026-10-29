@@ -21,12 +21,14 @@ from sqlalchemy.orm import Session
 from app.core.excepciones import DatosInvalidos
 from app.middlewares.role_middleware import es_super_admin
 from app.models.alerta import Alerta
+from app.models.evento_sismico import EventoSismico
 from app.models.enums import EstadoAlerta, RolUsuario
 from app.models.reporte import Reporte
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
 from app.models.zona_peligrosa import ZonaPeligrosa
 from app.repositories import mapa_repository as repo
+from app.repositories import sismos_repository
 from app.schemas.mapa_schema import CAPAS_MAPA, MapaOut, PuntoMapa
 from app.schemas.reportes_schema import etiqueta_tipo
 from app.services import alertas_service, reportes_service, zonas_peligrosas_service
@@ -160,6 +162,30 @@ def _punto_alerta(usuario: Usuario, alerta: Alerta) -> PuntoMapa:
     )
 
 
+# Los sismos se muestran durante 24 horas
+VIGENCIA_SISMO = timedelta(hours=24)
+
+
+def _punto_sismo(evento: EventoSismico) -> PuntoMapa:
+    posicion = latlng_desde_punto(evento.epicentro)
+    return PuntoMapa(
+        id=evento.id,
+        capa="sismo",
+        tipo="sismo",
+        titulo=f"Sismo M{evento.magnitud:.1f}",
+        detalle=_corto(evento.lugar),
+        estado="registrado",
+        prioridad=None,
+        lat=posicion["lat"],
+        lng=posicion["lng"],
+        radio_m=evento.radio_afectacion_m,
+        aproximada=False,
+        propio=False,
+        activo=True,
+        actualizado_en=evento.creado_en,
+    )
+
+
 def obtener_mapa(
     db: Session,
     usuario: Usuario,
@@ -200,5 +226,13 @@ def obtener_mapa(
     if "alertas" in pedidas:
         alertas = repo.listar_alertas(db, centro=centro, radio_m=radio_m, desde=filtro_desde)
         puntos += [_punto_alerta(usuario, a) for a in alertas]
+    if "sismos" in pedidas:
+        sismos = sismos_repository.recientes_para_mapa(
+            db,
+            ocurrido_desde=generado_en - VIGENCIA_SISMO,
+            registrado_desde=filtro_desde,
+            limite=repo.MAXIMO_POR_CAPA,
+        )
+        puntos += [_punto_sismo(e) for e in sismos]
     # centros: se suma cuando el mapa los necesite (B4 ya tiene su propio GET /centros-ayuda)
     return MapaOut(puntos=puntos, generado_en=generado_en)
