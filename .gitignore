@@ -18,6 +18,7 @@ env/
 # Credenciales
 *.pem
 firebase-credentials*.json
+firebase-service-account.json
 
 # IDE / SO
 .vscode/
