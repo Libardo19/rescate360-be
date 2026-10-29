@@ -20,10 +20,12 @@ REPORTES_ABIERTOS = (EstadoReporte.PENDIENTE, EstadoReporte.VERIFICADO)
 ZONAS_VIGENTES = (EstadoZona.ACTIVA, EstadoZona.EN_MONITOREO)
 
 
-def _filtros_comunes(modelo, abiertos, *, centro, radio_m, desde) -> list:
+def _filtros_comunes(modelo, abiertos, *, centro, radio_m, desde, columna_geo=None) -> list:
+    # Las zonas no tienen `ubicacion`: usan el polígono `area`. El resto de modelos usa `ubicacion`.
+    geografica = columna_geo if columna_geo is not None else modelo.ubicacion
     filtros = []
     if centro is not None:
-        filtros.append(cerca_de(modelo.ubicacion, centro[0], centro[1], radio_m))
+        filtros.append(cerca_de(geografica, centro[0], centro[1], radio_m))
     # Sin `desde` se pinta el mapa completo (solo lo abierto). Con `desde` llega todo lo que
     # cambió, también lo que se cerró, para que el cliente lo quite.
     if desde is None:
@@ -77,13 +79,14 @@ def listar_zonas(
     Sin `desde` se muestran solo las vigentes. Con `desde` llegan también las inactivas que
     cambiaron, para que el cliente las quite del mapa.
     """
-    filtros = []
-    if centro is not None:
-        filtros.append(cerca_de(ZonaPeligrosa.area, centro[0], centro[1], radio_m))
-    if desde is None:
-        filtros.append(ZonaPeligrosa.estado.in_(ZONAS_VIGENTES))
-    else:
-        filtros.append(ZonaPeligrosa.actualizado_en > desde)
+    filtros = _filtros_comunes(
+        ZonaPeligrosa,
+        ZONAS_VIGENTES,
+        centro=centro,
+        radio_m=radio_m,
+        desde=desde,
+        columna_geo=ZonaPeligrosa.area,
+    )
 
     consulta = (
         select(ZonaPeligrosa)

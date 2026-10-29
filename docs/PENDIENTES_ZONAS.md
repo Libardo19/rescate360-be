@@ -189,6 +189,8 @@ Actualizarlo después de integrar las migraciones de la otra rama.
 ## 4. Implementado en esta tarea
 
 - Capa `zonas` en `GET /mapa` (`mapa_repository.listar_zonas` y `mapa_service._punto_zona`).
+- Filtros de cercanía/estado/polling centralizados en `mapa_repository._filtros_comunes`; las zonas
+  pasan `ZonaPeligrosa.area` como columna geográfica.
 - Zonas inactivas visibles por defecto para `administrador` y `super_admin` en
   `GET /zonas-peligrosas`.
 - `organizacion_id` y `gestionado_por` eliminados de `ZonaPeligrosaOut`.
