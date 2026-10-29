@@ -64,6 +64,8 @@ class Usuario(Base):
     # "Olvidé mi contraseña": hash del código que llega por SMS o correo y su vencimiento (migración 0009)
     codigo_recuperacion_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     codigo_recuperacion_vence: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Secreto HMAC para firmar los mensajes sin conexión (migración 0020). Nunca sale en la auditoría
+    llave_offline: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Baja pedida por el titular (Ley 1581, migración 0014): datos anonimizados, la fila se conserva
     eliminado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
