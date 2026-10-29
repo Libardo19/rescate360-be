@@ -59,6 +59,8 @@ def _mensaje(usuario, llave, tipo="sos", saltos=0, generado=None, **cambios) -> 
     }
     m.update(cambios)
     texto = f"{m['uuid_origen']}|{m['usuario_id']}|{m['tipo']}|{m['lat']:.6f}|{m['lng']:.6f}|{m['generado_en']}"
+    if r := m.get("reporte"):
+        texto += f"|{r['tipo']}|{r['descripcion']}|{r.get('direccion') or ''}"
     m["firma"] = hmac.new(llave.encode(), texto.encode(), hashlib.sha256).hexdigest()
     return m
 
@@ -170,6 +172,42 @@ def test_sin_respuesta_sin_conexion_avisa_a_los_contactos(cliente, db, crear_usu
     assert _procesar(encolados)["resultados"][mensaje["uuid_origen"]] == "contactos_avisados"
     assert db.get(CheckIn, UUID(check_in["id"])).estado == EstadoCheckIn.SIN_RESPUESTA
     assert sms[0][0] == "+573001234567" and "10.46310,-73.25320" in sms[0][1]
+
+
+# --- reporte de incidente sin conexión ---
+
+REPORTE = {"tipo": "Inundación", "descripcion": "El caño se desbordó en la calle 12", "direccion": "Calle 12 #4-30"}
+
+
+def test_relevo_de_un_reporte_crea_el_reporte_del_autor(cliente, db, crear_usuario, headers_de, entorno, encolados):
+    autor = crear_usuario()
+    mensaje = _mensaje(autor, _llave(cliente, headers_de(autor)), tipo="reporte", saltos=1, reporte=REPORTE)
+
+    r = cliente.post("/offline/relevo", json={"mensajes": [mensaje]}, headers=headers_de(crear_usuario()))
+    assert r.json() == {"aceptados": 1, "duplicados": 0, "rechazados": []}
+    assert _procesar(encolados)["resultados"] == {mensaje["uuid_origen"]: "reporte_creado"}
+
+    reportes = cliente.get("/reportes", headers=headers_de(autor)).json()["items"]
+    assert len(reportes) == 1
+    assert reportes[0]["tipo"] == "inundacion" and reportes[0]["descripcion"] == REPORTE["descripcion"]
+    assert reportes[0]["ubicacion"] == {"lat": VALLEDUPAR[0], "lng": VALLEDUPAR[1]}
+    assert ("clasificar_reporte_ia", (reportes[0]["id"],)) in encolados
+
+
+def test_un_intermediario_no_puede_cambiar_el_texto_del_reporte(cliente, crear_usuario, headers_de):
+    autor = crear_usuario()
+    mensaje = _mensaje(autor, _llave(cliente, headers_de(autor)), tipo="reporte", reporte=REPORTE)
+    mensaje["reporte"] = {**REPORTE, "descripcion": "Falsa alarma, no pasa nada"}
+    r = cliente.post("/offline/relevo", json={"mensajes": [mensaje]}, headers=headers_de(crear_usuario()))
+    assert r.json()["rechazados"][0]["motivo"] == "FIRMA_INVALIDA"
+
+
+def test_reporte_sin_datos_o_datos_en_otro_tipo_es_invalido(cliente, crear_usuario, headers_de):
+    usuario = crear_usuario()
+    h = headers_de(usuario)
+    llave = _llave(cliente, h)
+    for mensaje in (_mensaje(usuario, llave, tipo="reporte"), _mensaje(usuario, llave, tipo="sos", reporte=REPORTE)):
+        assert cliente.post("/offline/sync", json={"mensajes": [mensaje]}, headers=h).status_code == 422
 
 
 def test_lote_vacio_o_muy_grande(cliente, crear_usuario, headers_de):

@@ -11,6 +11,7 @@ duplicado. Lo aceptado se guarda y el job `procesar_lote_offline` lo convierte e
 - `sos` / `necesito_ayuda`: un SOS (origen `mesh` si llegó por relevo), con su SMS a los contactos.
 - `a_salvo`: cierra el "¿Estás bien?" pendiente.
 - `sin_respuesta`: el teléfono vio vencer el "¿Estás bien?" sin red: se avisa a los contactos.
+- `reporte`: un reporte de incidente (sin fotos) a nombre del autor, que sigue el flujo normal.
 """
 
 import hashlib
@@ -19,6 +20,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.integrations.twilio_client import ErrorSMS, enviar_sms
@@ -40,8 +42,9 @@ from app.schemas.offline_schema import (
     RechazoOut,
     texto_a_firmar,
 )
+from app.schemas.reportes_schema import ReporteIn
 from app.schemas.solicitudes_ayuda_schema import LatLng, SolicitudSOSIn
-from app.services import solicitudes_ayuda_service
+from app.services import reportes_service, solicitudes_ayuda_service
 from app.utils.geo import latlng_desde_punto, punto_desde_latlng
 
 VIGENCIA = timedelta(hours=24)
@@ -59,7 +62,13 @@ def llave(db: Session, usuario: Usuario) -> str:
 
 def firma(llave_hex: str, mensaje: MensajeOffline) -> str:
     texto = texto_a_firmar(
-        mensaje.uuid_origen, mensaje.usuario_id, mensaje.tipo, mensaje.lat, mensaje.lng, mensaje.generado_en
+        mensaje.uuid_origen,
+        mensaje.usuario_id,
+        mensaje.tipo,
+        mensaje.lat,
+        mensaje.lng,
+        mensaje.generado_en,
+        mensaje.reporte,
     )
     return hmac.new(llave_hex.encode(), texto.encode(), hashlib.sha256).hexdigest()
 
@@ -161,6 +170,21 @@ def procesar(db: Session, mensaje: ColaAlertaOffline) -> str:
                 solicitud_id=solicitud.id,
             )
         return "sos_creado"
+
+    if mensaje.tipo == "reporte":
+        datos = mensaje.payload["reporte"]
+        try:
+            entrada = ReporteIn(
+                tipo=datos["tipo"],
+                descripcion=datos["descripcion"],
+                direccion=datos.get("direccion"),
+                **latlng_desde_punto(mensaje.ubicacion),
+            )
+        except ValidationError:
+            return "reporte_invalido"
+        # crear hace commit y encola la clasificación con IA, igual que un reporte con internet
+        reportes_service.crear(db, autor, entrada, [])
+        return "reporte_creado"
 
     if mensaje.tipo == "a_salvo":
         if pendiente is None:
