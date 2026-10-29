@@ -23,6 +23,8 @@ from app.models.auditoria import Auditoria
 from app.models.asignacion import Asignacion
 from app.models.consentimiento import Consentimiento
 from app.models.dispositivo import Dispositivo
+from app.models.evento_sismico import EventoSismico
+from app.models.check_in import CheckIn
 #from app.models.perfil_voluntario import PerfilVoluntario
 
 
@@ -43,6 +45,8 @@ __all__ = [
     "Auditoria",
     "Asignacion",
     "Consentimiento",
+    "EventoSismico",
+    "CheckIn",
     "Dispositivo",
     #"PerfilVoluntario",
 ]

@@ -139,3 +139,10 @@ class EstadoAlerta(str, enum.Enum):
     ACTIVA = "activa"
     EXPIRADA = "expirada"
     CANCELADA = "cancelada"
+
+
+class EstadoCheckIn(str, enum.Enum):
+    PENDIENTE = "pendiente"
+    A_SALVO = "a_salvo"
+    NECESITO_AYUDA = "necesito_ayuda"
+    SIN_RESPUESTA = "sin_respuesta"

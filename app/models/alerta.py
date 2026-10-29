@@ -47,7 +47,8 @@ class Alerta(Base):
         Geometry(geometry_type="POLYGON", srid=4326, spatial_index=False), nullable=False
     )
     expira_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    creado_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    # None = la creó el sistema (alerta de un sismo, migración 0018)
+    creado_por: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
