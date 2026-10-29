@@ -66,15 +66,17 @@ def crear_solicitud(db: Session, usuario: Usuario, datos: SolicitudAyudaIn) -> S
     return solicitud
 
 
-def crear_sos(db: Session, usuario: Usuario, datos: SolicitudSOSIn) -> SolicitudAyuda:
-    """El SOS no espera a la IA: nace crítico y de tipo rescate."""
+def crear_sos(
+    db: Session, usuario: Usuario, datos: SolicitudSOSIn, origen: OrigenSolicitud = OrigenSolicitud.SOS
+) -> SolicitudAyuda:
+    """El SOS no espera a la IA: nace crítico y de tipo rescate. `origen=mesh` si llegó por relevo Bluetooth."""
     solicitud = repo.crear(
         db,
         usuario_id=usuario.id,
         descripcion=DESCRIPCION_SOS,
         tipo=TipoSolicitud.RESCATE,
         ubicacion=punto_desde_latlng(datos.ubicacion.lat, datos.ubicacion.lng),
-        origen=OrigenSolicitud.SOS,
+        origen=origen,
         prioridad_ia=PrioridadSolicitud.CRITICA,
     )
     db.commit()

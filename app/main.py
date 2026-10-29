@@ -22,6 +22,7 @@ from app.routes import centros_ayuda_routes
 from app.routes import zonas_peligrosas_routes
 from app.routes import alertas_routes
 from app.routes import sismos_routes
+from app.routes import offline_routes
 from app.routes import personas_desaparecidas_routes
 from app.routes import dashboard_routes
 
@@ -47,6 +48,8 @@ registrar_manejadores_errores(app)
 
 # Routers: cada dueño agrega su línea (archivo compartido, solo agregar).
 app.include_router(auth_routes.router)
+# Antes de usuarios: trae /usuarios/me/llave-offline, que no debe leerse como /usuarios/{usuario_id}
+app.include_router(offline_routes.router)
 app.include_router(solicitudes_ayuda_routes.router)
 app.include_router(asignaciones_routes.router)
 app.include_router(usuarios_routes.router)
