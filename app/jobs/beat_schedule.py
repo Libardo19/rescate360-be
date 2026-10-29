@@ -15,4 +15,12 @@ BEAT_SCHEDULE: dict = {
         "task": "app.jobs.programados.vencer_check_ins.vencer_check_ins",
         "schedule": 60.0,
     },
+    "marcar-reportes-no-verificables": {
+        "task": "app.jobs.programados.marcar_reportes_no_verificables.marcar_reportes_no_verificables",
+        "schedule": crontab(minute=15),
+    },
+    "limpiar-datos-retencion": {
+        "task": "app.jobs.programados.limpiar_datos_retencion.limpiar_datos_retencion",
+        "schedule": crontab(hour=3, minute=30),
+    },
 }
