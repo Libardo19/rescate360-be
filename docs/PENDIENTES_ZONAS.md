@@ -3,39 +3,6 @@
 Documento de seguimiento del módulo `zonas_peligrosas`. Recoge lo que **no** se implementó en
 la tarea de mapa y las correcciones que todavía necesitan las migraciones y el panel web.
 
-## 1. Migraciones
-
-La cadena de esta rama no se puede ejecutar todavía:
-
-- `migrations/versions/0012_reportes_clasificacion_ia.py` declara `revision = "0011"`, el mismo
-  id que `0011_actualizar_centros_ayuda.py`.
-- `migrations/versions/0015_zonas_peligrosas_donaciones.py` declara `down_revision = "0014"`,
-  pero en esta rama no existen archivos `0013` ni `0014`.
-
-`0013` y `0014` existen en otra rama. **No renumerar `0015` a ciegas.** Al integrar esa rama:
-
-1. Confirmar que la cadena quede lineal y con un solo head:
-
-   ```bash
-   docker compose exec api alembic heads
-   ```
-
-2. Corregir `0012` para que su revisión sea `0012` y su `down_revision` sea `0011`.
-3. Dejar `0015` apuntando al head real que resulte después de integrar `0013` y `0014`
-   (muy probablemente `0014`).
-4. Probar ambos sentidos:
-
-   ```bash
-   docker compose exec api alembic upgrade head
-   docker compose exec api alembic downgrade -1
-   docker compose exec api alembic upgrade head
-   ```
-
-5. Actualizar el docstring de `0015`, que todavía dice `Revision ID: 0008` y
-   `Revises: 0007`.
-
-Mientras la cadena siga rota, `tests/conftest.py` no podrá migrar la base de pruebas y las
-pruebas de integración fallarán antes de ejecutar el primer test.
 
 ## 2. Panel web de zonas
 
