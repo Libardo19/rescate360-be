@@ -32,6 +32,8 @@ class EstadoReporte(str, enum.Enum):
     RECHAZADO = "rechazado"
     DUPLICADO = "duplicado"
     NO_VERIFICABLE = "no_verificable"
+    # Un voluntario lo atendió y finalizó su asignación (migración 0022)
+    ATENDIDO = "atendido"
 
 
 class EstadoCasoPersona(str, enum.Enum):
