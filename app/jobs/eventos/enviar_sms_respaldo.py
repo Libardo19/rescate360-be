@@ -33,7 +33,7 @@ def enviar_sms_respaldo(solicitud_id: str) -> dict:
     db = SessionLocal()
     try:
         solicitud = db.get(SolicitudAyuda, UUID(solicitud_id))
-        if solicitud is None or solicitud.origen != OrigenSolicitud.SOS:
+        if solicitud is None or solicitud.origen not in (OrigenSolicitud.SOS, OrigenSolicitud.MESH):
             return {"status": "no_aplica", "solicitud_id": solicitud_id}
         usuario = usuarios_repository.obtener_por_id(db, solicitud.usuario_id)
         contactos = contactos_emergencia_repository.listar_de_usuario(db, solicitud.usuario_id)

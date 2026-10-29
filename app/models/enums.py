@@ -43,6 +43,8 @@ class OrigenSolicitud(str, enum.Enum):
     MANUAL = "manual"
     ACELEROMETRO = "acelerometro"
     SOS = "sos"
+    # Llegó sin internet, saltando de teléfono en teléfono por Bluetooth (migración 0020)
+    MESH = "mesh"
 
 
 class PrioridadSolicitud(str, enum.Enum):
