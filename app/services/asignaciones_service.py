@@ -10,6 +10,7 @@ from app.models.enums import EstadoAsignacion, EstadoReporte, EstadoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
 from app.repositories import asignaciones_repository as repo
+from app.repositories import reportes_repository
 from app.repositories import solicitudes_ayuda_repository as solicitudes_repo
 from app.schemas.asignaciones_schema import AsignacionEstadoIn
 from app.services import reportes_service
@@ -71,7 +72,7 @@ def tomar_reporte(db: Session, usuario: Usuario, reporte_id: UUID) -> Asignacion
 
     verificar_misma_organizacion(usuario, reportes_service.organizacion_efectiva(reporte))
 
-    if reporte.estado in (EstadoReporte.RECHAZADO, EstadoReporte.DUPLICADO, EstadoReporte.NO_VERIFICABLE):
+    if reporte.estado in reportes_service.ESTADOS_CERRADOS:
         raise Conflicto("No se puede asignar un reporte en este estado", codigo="REPORTE_NO_ASIGNABLE")
 
     if repo.obtener_activa(db, usuario.id, reporte_id=reporte.id) is not None:
@@ -129,6 +130,13 @@ def actualizar_estado(
             raise NoEncontrado("El reporte asociado no existe", codigo="REPORTE_NO_ENCONTRADO")
         verificar_misma_organizacion(usuario, reportes_service.organizacion_efectiva(reporte))
         asignacion = repo.actualizar_estado(db, asignacion, estado=datos.estado)
+        # Finalizar = el voluntario lo atendió: el reporte se cierra y deja de salir como activo
+        # (lista del voluntario, mapa y panel). Cancelar no lo cambia: queda para otro voluntario.
+        if datos.estado == EstadoAsignacion.FINALIZADA and reporte.estado in (
+            EstadoReporte.PENDIENTE,
+            EstadoReporte.VERIFICADO,
+        ):
+            reportes_repository.actualizar(db, reporte, estado=EstadoReporte.ATENDIDO)
         db.commit()
         return asignacion
 
