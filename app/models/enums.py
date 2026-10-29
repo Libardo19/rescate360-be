@@ -127,3 +127,15 @@ class NivelZona(str, enum.Enum):
     BAJO = "bajo"
     MEDIO = "medio"
     ALTO = "alto"
+
+
+class NivelAlerta(str, enum.Enum):
+    BAJO = "bajo"
+    MEDIO = "medio"
+    ALTO = "alto"
+
+
+class EstadoAlerta(str, enum.Enum):
+    ACTIVA = "activa"
+    EXPIRADA = "expirada"
+    CANCELADA = "cancelada"
