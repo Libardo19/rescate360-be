@@ -67,16 +67,7 @@ def upgrade() -> None:
     op.alter_column("zonas_peligrosas", "centro", nullable=False)
     op.alter_column("zonas_peligrosas", "radio_m", nullable=False)
 
-    # --- DONACIONES: pendiente --------------------------------------------------------------
-    # DONACIONES: pendiente. Cuando se defina el modelo de donaciones y campañas, sus cambios
-    # (columnas nuevas, tabla campanas, enums) se agregan aquí, y su reverso en downgrade().
-
-
 def downgrade() -> None:
-    # --- DONACIONES: pendiente (agregar aquí el reverso, en orden inverso al upgrade) -------
-
-    # --- ZONAS PELIGROSAS -------------------------------------------------------------------
-    # tipo_riesgo vuelve a 30 caracteres: se recorta lo que no quepa
     op.alter_column(
         "zonas_peligrosas",
         "tipo_riesgo",
