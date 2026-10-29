@@ -1,4 +1,10 @@
-# Jobs programados de Celery Beat (app/jobs/programados/).
-# Se agregan aquí a medida que se implementen, por ejemplo:
-#   "expirar-alertas": {"task": "app.jobs.programados.expirar_alertas.run", "schedule": crontab(minute=0)},
-BEAT_SCHEDULE: dict = {}
+# Jobs programados de Celery Beat (app/jobs/programados/). El nombre de la tarea es
+# "<módulo>.<función>", como lo registra @celery_app.task.
+from celery.schedules import crontab
+
+BEAT_SCHEDULE: dict = {
+    "expirar-alertas": {
+        "task": "app.jobs.programados.expirar_alertas.expirar_alertas",
+        "schedule": crontab(minute="*/5"),
+    },
+}

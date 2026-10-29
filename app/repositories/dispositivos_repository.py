@@ -47,3 +47,11 @@ def tokens_de_usuarios(db: Session, usuario_ids: Iterable[UUID]) -> list[str]:
     if not ids:
         return []
     return list(db.scalars(select(Dispositivo.token_push).where(Dispositivo.usuario_id.in_(ids))))
+
+
+def eliminar_tokens(db: Session, tokens: Iterable[str]) -> int:
+    """Borra tokens que FCM marcó como inválidos (la app se desinstaló o el token venció)."""
+    lista = list(tokens)
+    if not lista:
+        return 0
+    return db.execute(delete(Dispositivo).where(Dispositivo.token_push.in_(lista))).rowcount

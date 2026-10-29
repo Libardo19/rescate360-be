@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.excepciones import DatosInvalidos, NoEncontrado, SinPermiso
 from app.integrations import storage_client
+from app.jobs import encolar as cola
+from app.jobs.eventos.notificar_persona_encontrada import notificar_persona_encontrada
 from app.middlewares.role_middleware import ROLES_ADMIN
 from app.models.enums import EstadoCasoPersona, TipoConsentimiento
 from app.models.persona_desaparecida import PersonaDesaparecida
@@ -193,5 +195,6 @@ def cambiar_estado(db: Session, usuario: Usuario, persona_id: UUID, datos: Estad
         db, persona, estado_caso=datos.estado, encontrado_en=datetime.now(UTC) if encontrada else None
     )
     db.commit()
-    # TODO (B3): cola.encolar(notificar_persona_encontrada, str(persona.id)) cuando exista el job
+    if encontrada:
+        cola.encolar(notificar_persona_encontrada, str(persona.id))
     return persona

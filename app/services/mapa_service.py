@@ -20,7 +20,8 @@ from sqlalchemy.orm import Session
 
 from app.core.excepciones import DatosInvalidos
 from app.middlewares.role_middleware import es_super_admin
-from app.models.enums import RolUsuario
+from app.models.alerta import Alerta
+from app.models.enums import EstadoAlerta, RolUsuario
 from app.models.reporte import Reporte
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
@@ -28,7 +29,7 @@ from app.models.zona_peligrosa import ZonaPeligrosa
 from app.repositories import mapa_repository as repo
 from app.schemas.mapa_schema import CAPAS_MAPA, MapaOut, PuntoMapa
 from app.schemas.reportes_schema import etiqueta_tipo
-from app.services import reportes_service, zonas_peligrosas_service
+from app.services import alertas_service, reportes_service, zonas_peligrosas_service
 from app.services.solicitudes_ayuda_service import organizacion_efectiva
 from app.utils.geo import latlng_desde_punto
 
@@ -138,6 +139,27 @@ def _punto_zona(usuario: Usuario, zona: ZonaPeligrosa) -> PuntoMapa:
     )
 
 
+def _punto_alerta(usuario: Usuario, alerta: Alerta) -> PuntoMapa:
+    posicion = latlng_desde_punto(alerta.centro)
+    return PuntoMapa(
+        id=alerta.id,
+        capa="alerta",
+        tipo=alerta.tipo,
+        titulo=alerta.titulo,
+        detalle=_corto(alerta.mensaje),
+        estado=alerta.estado.value,
+        prioridad=alerta.nivel.value,
+        lat=posicion["lat"],
+        lng=posicion["lng"],
+        radio_m=alerta.radio_m,
+        # Las alertas son información pública: el círculo exacto se muestra a todos
+        aproximada=False,
+        propio=alertas_service.es_propia(usuario, alerta),
+        activo=alerta.estado == EstadoAlerta.ACTIVA,
+        actualizado_en=alerta.actualizado_en,
+    )
+
+
 def obtener_mapa(
     db: Session,
     usuario: Usuario,
@@ -175,5 +197,8 @@ def obtener_mapa(
     if "zonas" in pedidas:
         zonas = repo.listar_zonas(db, centro=centro, radio_m=radio_m, desde=filtro_desde)
         puntos += [_punto_zona(usuario, z) for z in zonas]
-    # centros y alertas: se suman cuando existan sus módulos (B3, B4)
+    if "alertas" in pedidas:
+        alertas = repo.listar_alertas(db, centro=centro, radio_m=radio_m, desde=filtro_desde)
+        puntos += [_punto_alerta(usuario, a) for a in alertas]
+    # centros: se suma cuando el mapa los necesite (B4 ya tiene su propio GET /centros-ayuda)
     return MapaOut(puntos=puntos, generado_en=generado_en)

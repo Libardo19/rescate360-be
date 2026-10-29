@@ -8,6 +8,8 @@ from uuid import UUID
 
 from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
+from app.jobs import encolar as cola
+from app.jobs.eventos.notificar_voluntarios_cercanos import notificar_voluntarios_cercanos
 from app.models.enums import PrioridadSolicitud
 from app.repositories import reportes_repository as repo
 from app.schemas.ia_schema import CasoIA
@@ -44,6 +46,9 @@ def clasificar_reporte_ia(self, reporte_id: str) -> dict:
             razonamiento_ia=resultado.razonamiento,
         )
         db.commit()
+        # Ya tiene organización: se avisa a sus voluntarios cercanos
+        if resultado.organizacion_id is not None:
+            cola.encolar(notificar_voluntarios_cercanos, reporte_id)
         logger.info(
             "Reporte %s clasificado (%s): %s / org %s",
             reporte_id, resultado.fuente, resultado.prioridad.value, resultado.organizacion_id,
