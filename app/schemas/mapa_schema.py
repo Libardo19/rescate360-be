@@ -25,7 +25,7 @@ class PuntoMapa(BaseModel):
     radio_m: float | None = None
     # True = la posición está redondeada (~200 m) porque el caso es de otra persona u organización
     aproximada: bool
-    # True = es mío o de mi organización: puedo abrir el detalle y actuar sobre él
+    # True = puedo actuar sobre él según el módulo y mis permisos
     propio: bool
     # False = se cerró. En el polling con `desde`, el cliente lo quita del mapa
     activo: bool

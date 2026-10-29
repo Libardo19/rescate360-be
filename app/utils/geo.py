@@ -10,7 +10,7 @@ ST_DWithin/ST_Buffer a mano en otro archivo.
 from __future__ import annotations
 
 from geoalchemy2 import WKTElement
-from geoalchemy2.functions import ST_Buffer, ST_DWithin
+from geoalchemy2.functions import ST_Buffer, ST_DWithin, ST_Distance
 from geoalchemy2.types import Geography, Geometry
 from sqlalchemy import cast
 from sqlalchemy.sql.elements import ColumnElement
@@ -69,3 +69,12 @@ def cerca_de(columna: ColumnElement, lat: float, lng: float, metros: float):
         cast(punto, Geography),
         metros,
     )
+
+def distancia_m(columna: ColumnElement, lat: float, lng: float):
+    """Expresión SQL: distancia en METROS entre `columna` (Geometry) y (lat, lng).
+
+    Sirve para ordenar por cercanía y para devolver la distancia. Se castea a geography por
+    la misma razón que en cerca_de.
+    """
+    punto = punto_desde_latlng(lat, lng)
+    return ST_Distance(cast(columna, Geography), cast(punto, Geography))
