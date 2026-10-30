@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -82,7 +83,7 @@ def cancelar_activas_de_solicitud(db: Session, solicitud_id: UUID) -> int:
     resultado = db.execute(
         update(Asignacion)
         .where(Asignacion.solicitud_id == solicitud_id, Asignacion.estado_asignacion == EstadoAsignacion.ACTIVA)
-        .values(estado_asignacion=EstadoAsignacion.CANCELADA)
+        .values(estado_asignacion=EstadoAsignacion.CANCELADA, cerrada_en=datetime.now(UTC))
         .execution_options(synchronize_session="fetch")
     )
     return resultado.rowcount
@@ -102,7 +103,7 @@ def cancelar_activas_de_reporte(db: Session, reporte_id: UUID) -> int:
     resultado = db.execute(
         update(Asignacion)
         .where(Asignacion.reporte_id == reporte_id, Asignacion.estado_asignacion == EstadoAsignacion.ACTIVA)
-        .values(estado_asignacion=EstadoAsignacion.CANCELADA)
+        .values(estado_asignacion=EstadoAsignacion.CANCELADA, cerrada_en=datetime.now(UTC))
         .execution_options(synchronize_session="fetch")
     )
     return resultado.rowcount
@@ -132,6 +133,9 @@ def listar_de_voluntario(
 
 def actualizar_estado(db: Session, asignacion: Asignacion, *, estado: EstadoAsignacion) -> Asignacion:
     asignacion.estado_asignacion = estado
+    if estado != EstadoAsignacion.ACTIVA:
+        # Hora real: es lo que muestra el panel ("finalizó a las 10:42")
+        asignacion.cerrada_en = datetime.now(UTC)
     db.flush()
     db.refresh(asignacion)
     return asignacion

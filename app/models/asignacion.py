@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, func, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.enums import EstadoAsignacion, pg_enum
@@ -43,6 +43,10 @@ class Asignacion(Base):
         pg_enum(EstadoAsignacion, "estado_asignacion"),
         nullable=False, default=EstadoAsignacion.ACTIVA, server_default=EstadoAsignacion.ACTIVA.value,
     )
+    # Cuándo se finalizó o canceló (migración 0022); None mientras está activa
+    cerrada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    voluntario: Mapped["Usuario"] = relationship(foreign_keys=[voluntario_id], lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Asignacion {self.id} voluntario={self.voluntario_id}>"

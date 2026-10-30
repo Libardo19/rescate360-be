@@ -7,13 +7,14 @@ from app.jobs import encolar as cola
 from app.jobs.eventos.clasificar_prioridad_ia import clasificar_prioridad_ia
 from app.jobs.eventos.enviar_sms_respaldo import enviar_sms_respaldo
 from app.middlewares.role_middleware import alcance_organizacion, solo_propio, verificar_misma_organizacion
-from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
+from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, RolUsuario, TipoSolicitud
 from app.models.solicitud_ayuda import SolicitudAyuda
 from app.models.usuario import Usuario
 from app.repositories import asignaciones_repository, organizaciones_repository
 from app.repositories import solicitudes_ayuda_repository as repo
 from app.schemas.solicitudes_ayuda_schema import (
     SolicitudAyudaIn,
+    SolicitudAyudaOut,
     SolicitudEstadoIn,
     SolicitudOrganizacionIn,
     SolicitudPrioridadIn,
@@ -47,6 +48,14 @@ def obtener_solicitud(db: Session, usuario: Usuario, solicitud_id: UUID) -> Soli
         raise NoEncontrado("La solicitud no existe", codigo="SOLICITUD_NO_ENCONTRADA")
     verificar_acceso(usuario, solicitud)
     return solicitud
+
+
+def a_salida(usuario: Usuario, solicitud: SolicitudAyuda) -> SolicitudAyudaOut:
+    """La solicitud como la ve este usuario: el ciudadano no recibe quién la atiende."""
+    salida = SolicitudAyudaOut.model_validate(solicitud)
+    if usuario.rol == RolUsuario.CIUDADANO:
+        salida.atencion = None
+    return salida
 
 
 def crear_solicitud(db: Session, usuario: Usuario, datos: SolicitudAyudaIn) -> SolicitudAyuda:

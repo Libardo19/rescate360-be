@@ -27,7 +27,7 @@ def crear_solicitud(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.crear_solicitud(db, usuario, datos)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)
 
 
 def crear_sos(
@@ -36,7 +36,7 @@ def crear_sos(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.crear_sos(db, usuario, datos)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)
 
 
 def listar_solicitudes(
@@ -50,7 +50,7 @@ def listar_solicitudes(
     items, total = solicitudes_ayuda_service.listar_solicitudes(
         db, usuario, pag, estado=estado, tipo=tipo, prioridad=prioridad
     )
-    return Pagina.crear([SolicitudAyudaOut.model_validate(s) for s in items], total, pag)
+    return Pagina.crear([solicitudes_ayuda_service.a_salida(usuario, s) for s in items], total, pag)
 
 
 def obtener_solicitud(
@@ -59,7 +59,7 @@ def obtener_solicitud(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.obtener_solicitud(db, usuario, solicitud_id)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)
 
 
 def actualizar_prioridad(
@@ -69,7 +69,7 @@ def actualizar_prioridad(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.actualizar_prioridad(db, usuario, solicitud_id, datos)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)
 
 
 def actualizar_estado(
@@ -79,7 +79,7 @@ def actualizar_estado(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.actualizar_estado(db, usuario, solicitud_id, datos)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)
 
 
 def asignar_organizacion(
@@ -89,7 +89,7 @@ def asignar_organizacion(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.asignar_organizacion(db, usuario, solicitud_id, datos)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)
 
 
 def cancelar_solicitud(
@@ -98,4 +98,4 @@ def cancelar_solicitud(
     db: Session = Depends(get_db),
 ) -> SolicitudAyudaOut:
     solicitud = solicitudes_ayuda_service.cancelar_propia(db, usuario, solicitud_id)
-    return SolicitudAyudaOut.model_validate(solicitud)
+    return solicitudes_ayuda_service.a_salida(usuario, solicitud)

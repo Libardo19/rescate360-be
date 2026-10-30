@@ -10,6 +10,7 @@ from geoalchemy2.elements import WKBElement
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.models.enums import EstadoSolicitud, OrigenSolicitud, PrioridadSolicitud, TipoSolicitud
+from app.schemas.asignaciones_schema import AtencionOut
 from app.utils.geo import latlng_desde_punto
 
 
@@ -82,8 +83,18 @@ class SolicitudAyudaOut(BaseModel):
     razonamiento_ia: str | None
     estado: EstadoSolicitud
     solicitante: SolicitanteOut | None = None
+    # Quién la atiende o la atendió (solo para la organización y el super admin)
+    atencion: AtencionOut | None = None
     creado_en: datetime
     actualizado_en: datetime
+
+    @field_validator("atencion", mode="before")
+    @classmethod
+    def _atencion(cls, valor):
+        # Desde el ORM llega la asignación (Solicitud.atencion); se expone como AtencionOut
+        if valor is None or isinstance(valor, AtencionOut | dict):
+            return valor
+        return AtencionOut.desde_asignacion(valor)
 
     @field_validator("ubicacion", mode="before")
     @classmethod

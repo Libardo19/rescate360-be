@@ -13,6 +13,7 @@ from geoalchemy2.elements import WKBElement, WKTElement
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import EstadoReporte, PrioridadSolicitud
+from app.schemas.asignaciones_schema import AtencionOut
 from app.schemas.solicitudes_ayuda_schema import LatLng
 from app.utils.geo import latlng_desde_punto
 
@@ -139,6 +140,8 @@ class ReporteOut(BaseModel):
     # Solo para quien lo creó, su organización y el super admin: en un reporte verificado
     # que ve cualquiera, no se expone quién lo hizo
     reportante: ReportanteOut | None
+    # Quién lo atiende o lo atendió (solo para la organización y el super admin)
+    atencion: AtencionOut | None = None
     creado_en: datetime
     actualizado_en: datetime
 

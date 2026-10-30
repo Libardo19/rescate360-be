@@ -71,5 +71,14 @@ class Reporte(Base):
     )
     autor: Mapped["Usuario"] = relationship(foreign_keys=[usuario_id], lazy="selectin")
 
+    # Asignaciones del caso, para saber quién lo atiende (se cargan en lote con la consulta)
+    asignaciones: Mapped[list["Asignacion"]] = relationship(viewonly=True, lazy="selectin")
+
+    @property
+    def atencion(self) -> "Asignacion | None":
+        """La asignación más reciente que no se canceló: quién lo atiende o lo atendió."""
+        vigentes = [a for a in self.asignaciones if a.estado_asignacion.value != "cancelada"]
+        return max(vigentes, key=lambda a: a.asignado_en) if vigentes else None
+
     def __repr__(self) -> str:
         return f"<Reporte {self.id} {self.tipo} {self.estado}>"

@@ -30,11 +30,12 @@ from app.middlewares.role_middleware import (
     solo_propio,
     verificar_misma_organizacion,
 )
-from app.models.enums import EstadoReporte
+from app.models.enums import EstadoReporte, RolUsuario
 from app.models.reporte import Reporte
 from app.models.usuario import Usuario
 from app.repositories import asignaciones_repository, organizaciones_repository
 from app.repositories import reportes_repository as repo
+from app.schemas.asignaciones_schema import AtencionOut
 from app.schemas.reportes_schema import (
     FILTRO_OTROS,
     MAXIMO_ADJUNTOS,
@@ -55,7 +56,12 @@ from app.utils.geo import punto_desde_latlng
 from app.utils.paginacion import Paginacion
 
 CARPETA_EVIDENCIAS = "reportes"
-ESTADOS_CERRADOS = (EstadoReporte.RECHAZADO, EstadoReporte.DUPLICADO, EstadoReporte.NO_VERIFICABLE)
+ESTADOS_CERRADOS = (
+    EstadoReporte.RECHAZADO,
+    EstadoReporte.DUPLICADO,
+    EstadoReporte.NO_VERIFICABLE,
+    EstadoReporte.ATENDIDO,
+)
 
 
 def organizacion_efectiva(reporte: Reporte) -> UUID | None:
@@ -99,6 +105,12 @@ def a_salida(usuario: Usuario, reporte: Reporte) -> ReporteOut:
             for e in reporte.evidencias
         ],
         reportante=ReportanteOut(id=reporte.autor.id, nombre=reporte.autor.nombre) if propio else None,
+        # El ciudadano no recibe quién lo atiende; su organización y el super admin sí
+        atencion=(
+            AtencionOut.desde_asignacion(reporte.atencion)
+            if propio and usuario.rol != RolUsuario.CIUDADANO
+            else None
+        ),
         creado_en=reporte.creado_en,
         actualizado_en=reporte.actualizado_en,
     )
