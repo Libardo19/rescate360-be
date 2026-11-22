@@ -1,13 +1,29 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.integrations.sismos_client import LAT_MAX, LAT_MIN, LNG_MAX, LNG_MIN
 from app.models.evento_sismico import EventoSismico
 from app.utils.geo import distancia_m, punto_desde_latlng
 from app.utils.paginacion import Paginacion
+
+REGIONES = ("colombia", "mundo")
+
+
+def _en_colombia():
+    """Epicentro dentro del recuadro de Colombia (el mismo de sismos_client.en_colombia)."""
+    recuadro = func.ST_MakeEnvelope(LNG_MIN, LAT_MIN, LNG_MAX, LAT_MAX, 4326)
+    return func.ST_Intersects(EventoSismico.epicentro, recuadro)
+
+
+def ids_externos_existentes(db: Session, ids_externos: list[str]) -> set[str]:
+    if not ids_externos:
+        return set()
+    consulta = select(EventoSismico.id_externo).where(EventoSismico.id_externo.in_(ids_externos))
+    return set(db.scalars(consulta))
 
 
 def registrar(
@@ -51,9 +67,14 @@ def obtener_por_id(db: Session, evento_id: UUID) -> EventoSismico | None:
 
 
 def listar(
-    db: Session, pag: Paginacion, *, desde: datetime | None, magnitud_min: float | None
+    db: Session, pag: Paginacion, *, desde: datetime | None, magnitud_min: float | None, region: str | None = None
 ) -> tuple[list[EventoSismico], int]:
+    """`region`: colombia (dentro del recuadro), mundo (fuera de él) o None (todos)."""
     filtros = []
+    if region == "colombia":
+        filtros.append(_en_colombia())
+    elif region == "mundo":
+        filtros.append(~_en_colombia())
     if desde is not None:
         filtros.append(EventoSismico.ocurrido_en >= desde)
     if magnitud_min is not None:
@@ -89,3 +110,12 @@ def recientes_para_mapa(
         .limit(limite)
     )
     return list(db.scalars(consulta).all())
+
+
+def borrar_lejanos_viejos(db: Session, *, antes_de: datetime) -> int:
+    """Los sismos de fuera de Colombia solo sirven para el mapa: se borran pasado un tiempo.
+    Los que tienen alerta (y por eso check-ins) se conservan."""
+    consulta = delete(EventoSismico).where(
+        EventoSismico.ocurrido_en < antes_de, EventoSismico.alerta_id.is_(None), ~_en_colombia()
+    )
+    return db.execute(consulta).rowcount or 0

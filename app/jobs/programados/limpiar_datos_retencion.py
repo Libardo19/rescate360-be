@@ -2,6 +2,8 @@
 
 - Ubicación actual de los usuarios guardada hace más de RETENCION_UBICACIONES_DIAS (30).
 - Mensajes sin conexión ya procesados de hace más de esos mismos días (traen una ubicación).
+- Sismos de fuera de Colombia de hace más de RETENCION_SISMOS_MUNDO_DIAS (7): solo sirven para
+  el mapa, que muestra las últimas 24 h. Los de Colombia se guardan como historial.
 """
 
 import logging
@@ -14,6 +16,9 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.models.cola_alerta_offline import ColaAlertaOffline
 from app.models.usuario import Usuario
+from app.repositories import sismos_repository
+
+RETENCION_SISMOS_MUNDO_DIAS = 7
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +38,16 @@ def limpiar_datos_retencion() -> dict:
                 ColaAlertaOffline.sincronizado.is_(True), ColaAlertaOffline.recibido_en < limite
             )
         ).rowcount
+        sismos = sismos_repository.borrar_lejanos_viejos(
+            db, antes_de=datetime.now(UTC) - timedelta(days=RETENCION_SISMOS_MUNDO_DIAS)
+        )
         db.commit()
-        logger.info("Retención: %d ubicaciones y %d mensajes sin conexión borrados", ubicaciones, mensajes)
-        return {"status": "ok", "ubicaciones": ubicaciones, "mensajes_offline": mensajes}
+        logger.info(
+            "Retención: %d ubicaciones, %d mensajes sin conexión y %d sismos lejanos borrados",
+            ubicaciones,
+            mensajes,
+            sismos,
+        )
+        return {"status": "ok", "ubicaciones": ubicaciones, "mensajes_offline": mensajes, "sismos_mundo": sismos}
     finally:
         db.close()

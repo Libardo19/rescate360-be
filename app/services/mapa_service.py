@@ -31,7 +31,7 @@ from app.repositories import mapa_repository as repo
 from app.repositories import sismos_repository
 from app.schemas.mapa_schema import CAPAS_MAPA, MapaOut, PuntoMapa
 from app.schemas.reportes_schema import etiqueta_tipo
-from app.services import alertas_service, reportes_service, zonas_peligrosas_service
+from app.services import alertas_service, reportes_service, sismos_service, zonas_peligrosas_service
 from app.services.solicitudes_ayuda_service import organizacion_efectiva
 from app.utils.geo import latlng_desde_punto
 
@@ -162,23 +162,28 @@ def _punto_alerta(usuario: Usuario, alerta: Alerta) -> PuntoMapa:
     )
 
 
-# Los sismos se muestran durante 24 horas
+# Los sismos se muestran durante 24 horas. Al ser de todo el mundo, la capa tiene un tope más alto
+# (unos 300-400 al día con magnitud >= 0) y no se recorta por la posición de quien consulta.
 VIGENCIA_SISMO = timedelta(hours=24)
+MAXIMO_SISMOS = 1500
 
 
 def _punto_sismo(evento: EventoSismico) -> PuntoMapa:
     posicion = latlng_desde_punto(evento.epicentro)
+    local = sismos_service.es_local(evento)
     return PuntoMapa(
         id=evento.id,
         capa="sismo",
         tipo="sismo",
         titulo=f"Sismo M{evento.magnitud:.1f}",
         detalle=_corto(evento.lugar),
-        estado="registrado",
+        estado="colombia" if local else "mundo",
         prioridad=None,
         lat=posicion["lat"],
         lng=posicion["lng"],
-        radio_m=evento.radio_afectacion_m,
+        # El radio de afectación solo tiene sentido en Colombia (donde se alerta)
+        radio_m=evento.radio_afectacion_m if local else None,
+        magnitud=evento.magnitud,
         aproximada=False,
         propio=False,
         activo=True,
@@ -231,7 +236,7 @@ def obtener_mapa(
             db,
             ocurrido_desde=generado_en - VIGENCIA_SISMO,
             registrado_desde=filtro_desde,
-            limite=repo.MAXIMO_POR_CAPA,
+            limite=MAXIMO_SISMOS,
         )
         puntos += [_punto_sismo(e) for e in sismos]
     # centros: se suma cuando el mapa los necesite (B4 ya tiene su propio GET /centros-ayuda)

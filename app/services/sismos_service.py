@@ -1,9 +1,10 @@
 """Sismos (B8).
 
-- Cada minuto el job `sincronizar_sismos` lee el feed del USGS y registra los sismos de
-  Colombia (idempotente por `id_externo`).
-- Desde la magnitud SISMOS_MAGNITUD_ALERTA (4.5): se publica una alerta del sistema sobre el
-  epicentro y se abre un "¿Estás bien?" a quien tenga su ubicación reciente dentro del radio.
+- Cada minuto el job `sincronizar_sismos` lee el feed del USGS y registra los sismos de todo el
+  mundo (idempotente por `id_externo`). Todos salen en el mapa y en `GET /sismos`.
+- Solo los de Colombia (o un simulacro), desde SISMOS_MAGNITUD_ALERTA (4.5): se publica una alerta
+  del sistema sobre el epicentro y se abre un "¿Estás bien?" a quien tenga su ubicación reciente
+  dentro del radio.
 - El radio crece con la magnitud: 10 km para un 4.5 y se duplica por cada punto (tope 300 km).
 - `POST /sismos/simular` (solo super admin y solo en local) crea uno falso para la demo.
 - Todo se presenta como información de fuentes públicas, no como alerta temprana oficial.
@@ -17,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.excepciones import NoEncontrado, SinPermiso
-from app.integrations.sismos_client import SismoFeed
+from app.integrations.sismos_client import SismoFeed, en_colombia
 from app.models.enums import NivelAlerta
 from app.models.evento_sismico import EventoSismico
 from app.models.usuario import Usuario
@@ -45,8 +46,17 @@ def nivel_por_magnitud(magnitud: float) -> NivelAlerta:
     return NivelAlerta.BAJO
 
 
+def es_local(evento: EventoSismico) -> bool:
+    """En Colombia, o un simulacro (que siempre se trata como local)."""
+    if evento.fuente == "simulado":
+        return True
+    epicentro = latlng_desde_punto(evento.epicentro)
+    return en_colombia(epicentro["lat"], epicentro["lng"])
+
+
 def a_salida(db: Session, usuario: Usuario | None, evento: EventoSismico) -> SismoOut:
     salida = SismoOut.model_validate(evento)
+    salida.en_colombia = es_local(evento)
     if usuario is not None and usuario.ubicacion_actual is not None:
         posicion = latlng_desde_punto(usuario.ubicacion_actual)
         salida.distancia_m = round(repo.distancia_a(db, evento, posicion["lat"], posicion["lng"]), 1)
@@ -71,8 +81,11 @@ def registrar(db: Session, sismo: SismoFeed, fuente: str = "usgs") -> tuple[Even
 
 
 def atender_si_es_fuerte(db: Session, evento: EventoSismico) -> bool:
-    """Publica la alerta y abre los check-ins una sola vez por sismo. Devuelve si lo atendió."""
+    """Publica la alerta y abre los check-ins una sola vez por sismo. Devuelve si lo atendió.
+    Los sismos de fuera de Colombia solo se muestran: no alertan."""
     if evento.magnitud < get_settings().sismos_magnitud_alerta or evento.alerta_id is not None:
+        return False
+    if not es_local(evento):
         return False
     epicentro = latlng_desde_punto(evento.epicentro)
     alerta = alertas_service.publicar(
@@ -124,9 +137,9 @@ def simular(db: Session, usuario: Usuario, datos: SismoSimuladoIn) -> EventoSism
 
 
 def listar(
-    db: Session, pag: Paginacion, *, desde: datetime | None, magnitud_min: float | None
+    db: Session, pag: Paginacion, *, desde: datetime | None, magnitud_min: float | None, region: str | None = None
 ) -> tuple[list[EventoSismico], int]:
-    return repo.listar(db, pag, desde=desde, magnitud_min=magnitud_min)
+    return repo.listar(db, pag, desde=desde, magnitud_min=magnitud_min, region=region)
 
 
 def obtener(db: Session, evento_id: UUID) -> EventoSismico:

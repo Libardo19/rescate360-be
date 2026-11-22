@@ -37,7 +37,10 @@ class Settings(BaseSettings):
     video_max_mb: int = 30
 
     # Sismos (feed público del USGS; el del SGC se usa si expone uno consumible)
+    # Se registran los sismos de todo el mundo (se ven en el mapa); solo los de Colombia alertan.
+    # Cada minuto se lee el de la última hora; cada 30 min el del día, por si el worker estuvo caído.
     sismos_feed_url: str = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
+    sismos_feed_dia_url: str = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
     # Desde esta magnitud se publica la alerta y se pregunta "¿Estás bien?" a quien esté cerca
     sismos_magnitud_alerta: float = 4.5
     # Minutos para responder el "¿Estás bien?" antes de avisar a los contactos de emergencia

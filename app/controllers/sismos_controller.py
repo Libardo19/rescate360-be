@@ -1,6 +1,7 @@
 """HTTP de sismos y check-ins: arma la respuesta y llama al service. Sin SQL ni reglas."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import Depends, Query
@@ -24,11 +25,14 @@ from app.utils.paginacion import Pagina, Paginacion, paginacion
 def listar_sismos(
     desde: datetime | None = None,
     magnitud_min: float | None = Query(default=None, ge=0, le=10),
+    region: Literal["colombia", "mundo"] | None = Query(
+        default=None, description="colombia, mundo (fuera de Colombia) o vacío para todos"
+    ),
     pag: Paginacion = Depends(paginacion),
     usuario: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Pagina[SismoOut]:
-    items, total = sismos_service.listar(db, pag, desde=desde, magnitud_min=magnitud_min)
+    items, total = sismos_service.listar(db, pag, desde=desde, magnitud_min=magnitud_min, region=region)
     return Pagina.crear([sismos_service.a_salida(db, usuario, e) for e in items], total, pag)
 
 

@@ -1,7 +1,8 @@
 """Feed público de sismos del USGS (GeoJSON, se actualiza cada minuto).
 
-Solo se quedan los sismos dentro del recuadro de Colombia. Si el feed no responde, se deja un
-log y se devuelve una lista vacía: el job lo vuelve a intentar al minuto siguiente.
+Se quedan los sismos de todo el mundo (el mapa los muestra todos); `en_colombia` decide cuáles
+alertan. Si el feed no responde, se deja un log y se devuelve una lista vacía: el job lo vuelve a
+intentar al minuto siguiente.
 Sin dependencias nuevas: urllib de la librería estándar.
 """
 
@@ -37,20 +38,19 @@ def en_colombia(lat: float, lng: float) -> bool:
 
 
 def parsear(geojson: dict) -> list[SismoFeed]:
-    """Convierte el GeoJSON del USGS; ignora los que vienen sin magnitud o fuera de Colombia."""
+    """Convierte el GeoJSON del USGS; ignora los que vienen sin magnitud o con magnitud negativa
+    (microsismos que el USGS reporta por debajo de 0 y que nadie siente)."""
     sismos = []
     for feature in geojson.get("features", []):
         propiedades = feature.get("properties") or {}
         coordenadas = (feature.get("geometry") or {}).get("coordinates") or []
-        if propiedades.get("mag") is None or len(coordenadas) < 2:
+        if propiedades.get("mag") is None or float(propiedades["mag"]) < 0 or len(coordenadas) < 2:
             continue
         lng, lat = float(coordenadas[0]), float(coordenadas[1])
-        if not en_colombia(lat, lng):
-            continue
         sismos.append(
             SismoFeed(
                 id_externo=f"usgs:{feature['id']}",
-                magnitud=round(float(propiedades["mag"]), 1),
+                magnitud=min(10.0, round(float(propiedades["mag"]), 1)),
                 profundidad_km=float(coordenadas[2]) if len(coordenadas) > 2 and coordenadas[2] is not None else None,
                 lugar=(propiedades.get("place") or "Sin ubicación")[:200],
                 lat=lat,
@@ -61,9 +61,10 @@ def parsear(geojson: dict) -> list[SismoFeed]:
     return sismos
 
 
-def obtener_recientes() -> list[SismoFeed]:
+def obtener_recientes(url: str | None = None) -> list[SismoFeed]:
+    """Sin `url`: el feed de la última hora."""
     try:
-        with urllib.request.urlopen(get_settings().sismos_feed_url, timeout=TIMEOUT_S) as respuesta:
+        with urllib.request.urlopen(url or get_settings().sismos_feed_url, timeout=TIMEOUT_S) as respuesta:
             return parsear(json.load(respuesta))
     except Exception:
         logger.exception("No se pudo leer el feed de sismos")
