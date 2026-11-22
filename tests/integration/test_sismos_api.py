@@ -186,7 +186,7 @@ def test_no_se_responde_el_de_otro(cliente, crear_usuario, headers_de):
     assert r.status_code == 404
 
 
-def test_vencido_queda_sin_respuesta_y_avisa_a_los_contactos(cliente, db, crear_usuario, headers_de, entorno):
+def test_vencido_queda_sin_respuesta_sube_sos_y_avisa(cliente, db, crear_usuario, headers_de, entorno, encolados):
     sms = entorno
     usuario = crear_usuario(C)
     h = headers_de(usuario)
@@ -200,6 +200,24 @@ def test_vencido_queda_sin_respuesta_y_avisa_a_los_contactos(cliente, db, crear_
     db.refresh(fila)
     assert fila.estado == EstadoCheckIn.SIN_RESPUESTA
     assert sms[0][0] == "+573001234567" and "10.46000,-73.25000" in sms[0][1] and usuario.nombre in sms[0][1]
+    assert "Pedimos ayuda" in sms[0][1]
+    # No respondió ni sí ni no: se subió su SOS automático, crítico y con su ubicación
+    sos = db.get(SolicitudAyuda, fila.solicitud_id)
+    assert sos.origen == OrigenSolicitud.SOS and sos.usuario_id == usuario.id
+    assert "no respondió" in sos.descripcion
+    # El SMS a los contactos lo manda este job: el SOS no encola otro
+    assert not [e for e in encolados if e == ("enviar_sms_respaldo", (str(sos.id),))]
+
+
+def test_vencido_sin_ubicacion_no_crea_sos(db, crear_usuario, headers_de, cliente, entorno):
+    h = headers_de(crear_usuario(C))
+    check_in = cliente.post("/check-ins", json={}, headers=h).json()
+    fila = db.get(CheckIn, UUID(check_in["id"]))
+    fila.vence_en = datetime.now(UTC) - timedelta(minutes=1)
+    db.flush()
+    assert job_vencer.vencer_check_ins.run()["vencidos"] == 1
+    db.refresh(fila)
+    assert fila.estado == EstadoCheckIn.SIN_RESPUESTA and fila.solicitud_id is None
 
 
 def test_panel_ve_el_resumen_del_sismo(cliente, db, crear_usuario, headers_de, entorno):

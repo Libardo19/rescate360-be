@@ -24,6 +24,8 @@ from app.utils.geo import punto_desde_latlng
 from app.utils.paginacion import Paginacion
 
 DESCRIPCION_SOS = "Solicitud de emergencia (SOS)"
+DESCRIPCION_SOS_SIN_RESPUESTA = 'SOS automático: no respondió el "¿Estás bien?" a tiempo'
+
 ESTADOS_ABIERTOS = (EstadoSolicitud.PENDIENTE, EstadoSolicitud.EN_PROCESO)
 
 
@@ -76,13 +78,21 @@ def crear_solicitud(db: Session, usuario: Usuario, datos: SolicitudAyudaIn) -> S
 
 
 def crear_sos(
-    db: Session, usuario: Usuario, datos: SolicitudSOSIn, origen: OrigenSolicitud = OrigenSolicitud.SOS
+    db: Session,
+    usuario: Usuario,
+    datos: SolicitudSOSIn,
+    origen: OrigenSolicitud = OrigenSolicitud.SOS,
+    *,
+    descripcion: str = DESCRIPCION_SOS,
+    avisar_contactos: bool = True,
 ) -> SolicitudAyuda:
-    """El SOS no espera a la IA: nace crítico y de tipo rescate. `origen=mesh` si llegó por relevo Bluetooth."""
+    """El SOS no espera a la IA: nace crítico y de tipo rescate. `origen=mesh` si llegó por relevo Bluetooth.
+
+    `avisar_contactos=False` cuando quien lo crea ya manda su propio SMS (el "¿Estás bien?" vencido)."""
     solicitud = repo.crear(
         db,
         usuario_id=usuario.id,
-        descripcion=DESCRIPCION_SOS,
+        descripcion=descripcion,
         tipo=TipoSolicitud.RESCATE,
         ubicacion=punto_desde_latlng(datos.ubicacion.lat, datos.ubicacion.lng),
         origen=origen,
@@ -92,7 +102,8 @@ def crear_sos(
     # La prioridad ya es crítica; el job solo la enruta a una organización de rescate
     cola.encolar(clasificar_prioridad_ia, str(solicitud.id))
     # SMS a los contactos de emergencia: llega aunque no tengan la app ni internet
-    cola.encolar(enviar_sms_respaldo, str(solicitud.id))
+    if avisar_contactos:
+        cola.encolar(enviar_sms_respaldo, str(solicitud.id))
     return solicitud
 
 

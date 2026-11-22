@@ -83,14 +83,36 @@ def responder(db: Session, usuario: Usuario, check_in_id: UUID, datos: Respuesta
 
 
 def vencer(db: Session) -> list[tuple[CheckIn, Usuario]]:
-    """Marca `sin_respuesta` los vencidos. Devuelve (check_in, usuario) para avisar a sus contactos."""
+    """Marca `sin_respuesta` los vencidos y, si se conoce dónde está la persona, sube su SOS
+    automático (crítico, con su última ubicación): quien no responde puede estar atrapado o herido.
+    Devuelve (check_in, usuario) para avisar a sus contactos (el job manda un solo SMS)."""
     vencidos = repo.vencidos_bloqueados(db)
     resultado = []
     for check_in in vencidos:
         repo.actualizar(db, check_in, estado=EstadoCheckIn.SIN_RESPUESTA)
         resultado.append((check_in, db.get(Usuario, check_in.usuario_id)))
     db.commit()
+    for check_in, usuario in resultado:
+        _sos_por_falta_de_respuesta(db, check_in, usuario)
     return resultado
+
+
+def _sos_por_falta_de_respuesta(db: Session, check_in: CheckIn, usuario: Usuario) -> None:
+    posicion = latlng_desde_punto(check_in.ultima_ubicacion or usuario.ubicacion_actual)
+    if posicion is None:
+        return  # sin ubicación no hay a dónde mandar la ayuda: quedan los SMS a los contactos
+    solicitud = solicitudes_ayuda_service.crear_sos(
+        db,
+        usuario,
+        SolicitudSOSIn(ubicacion=LatLng(**posicion)),
+        descripcion=solicitudes_ayuda_service.DESCRIPCION_SOS_SIN_RESPUESTA,
+        avisar_contactos=False,
+    )
+    campos: dict = {"solicitud_id": solicitud.id}
+    if check_in.ultima_ubicacion is None:
+        campos["ultima_ubicacion"] = punto_desde_latlng(posicion["lat"], posicion["lng"])
+    repo.actualizar(db, check_in, **campos)
+    db.commit()
 
 
 def _persona(check_in: CheckIn, persona: Usuario) -> PersonaCheckInOut:

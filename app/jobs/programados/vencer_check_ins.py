@@ -1,5 +1,5 @@
-"""Cada minuto: los "¿Estás bien?" sin responder a tiempo quedan sin_respuesta y se avisa por SMS
-a los contactos de emergencia con la última ubicación conocida.
+"""Cada minuto: los "¿Estás bien?" sin responder a tiempo quedan sin_respuesta, se sube un SOS
+automático con la última ubicación conocida (si se conoce) y se avisa por SMS a los contactos.
 """
 
 import logging
@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 def mensaje_sin_respuesta(nombre: str, posicion: dict | None) -> str:
     donde = (
-        f"Última ubicación: https://maps.google.com/?q={posicion['lat']:.5f},{posicion['lng']:.5f} "
+        f"Pedimos ayuda a los organismos de rescate. Última ubicación: "
+        f"https://maps.google.com/?q={posicion['lat']:.5f},{posicion['lng']:.5f} "
         if posicion
         else "No tenemos su ubicación. "
     )
