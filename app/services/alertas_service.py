@@ -7,17 +7,20 @@ Reglas de acceso:
 - Publicar: administrador (en su organización) o super admin (en la que elija, o global).
 - Editar y cancelar: administrador de la organización de la alerta o super admin.
 
-Al publicarla se encola `notificar_alerta_zona`: push a quienes estén dentro del círculo.
+Al publicarla se encola `notificar_alerta_zona`: push a quienes estén dentro del círculo
+(o `notificar_alerta_general`, a todos, si es un sismo muy fuerte).
 Vence sola con `expira_en` (job expirar_alertas).
 """
 
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.core.excepciones import Conflicto, DatosInvalidos, NoEncontrado, SinPermiso
 from app.jobs import encolar as cola
+from app.jobs.eventos.notificar_alerta_general import notificar_alerta_general
 from app.jobs.eventos.notificar_alerta_zona import notificar_alerta_zona
 from app.middlewares.role_middleware import ROLES_ADMIN, verificar_misma_organizacion
 from app.models.alerta import Alerta
@@ -69,8 +72,12 @@ def publicar(
     radio_m: float,
     horas_vigencia: int,
     origen: str = "manual",
+    alcance: Literal["zona", "todos"] = "zona",
 ) -> Alerta:
-    """Crea la alerta y encola el push. La usa también el job de sismos (origen="sismo")."""
+    """Crea la alerta y encola el push. La usa también el job de sismos (origen="sismo").
+
+    alcance="zona": push a quienes estén dentro del círculo. alcance="todos": push a todos los
+    usuarios activos (sismo muy fuerte); el círculo sigue marcando la zona afectada en el mapa."""
     alerta = repo.crear(
         db,
         titulo=titulo,
@@ -87,7 +94,7 @@ def publicar(
     )
     db.commit()
     # Después del commit, para que el worker encuentre la fila
-    cola.encolar(notificar_alerta_zona, str(alerta.id))
+    cola.encolar(notificar_alerta_general if alcance == "todos" else notificar_alerta_zona, str(alerta.id))
     return alerta
 
 

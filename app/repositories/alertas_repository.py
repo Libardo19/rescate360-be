@@ -99,6 +99,11 @@ def usuarios_en_la_zona(db: Session, alerta: Alerta, horas_ubicacion: int) -> li
     return list(db.scalars(consulta))
 
 
+def usuarios_activos(db: Session) -> list[UUID]:
+    """Todos los usuarios activos: destinatarios de la alerta general de un sismo muy fuerte."""
+    return list(db.scalars(select(Usuario.id).where(Usuario.estado == EstadoUsuario.ACTIVO)))
+
+
 def expirar_vencidas(db: Session) -> int:
     resultado = db.execute(
         update(Alerta)

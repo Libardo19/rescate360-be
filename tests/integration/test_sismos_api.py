@@ -266,6 +266,38 @@ def test_sismo_moderado_solo_avisa_a_la_zona(db, entorno, encolados, monkeypatch
     assert db.get(Alerta, evento.alerta_id).titulo.startswith("Sismo de magnitud")
 
 
+def test_sismo_muy_fuerte_sos_cerca_y_aviso_lejos(db, crear_usuario, entorno, encolados, monkeypatch):
+    from app.jobs.eventos import notificar_alerta_general as job_general
+    from app.services import notificaciones_service
+
+    en_valledupar, en_bogota, sin_ubicacion = crear_usuario(C), crear_usuario(C), crear_usuario(C)
+    _ubicar(db, en_valledupar, 10.47, -73.25)
+    _ubicar(db, en_bogota, 4.71, -74.07)
+    _sincronizar(monkeypatch, _feature("fuerte", 6.4, *VALLEDUPAR))
+    evento = db.scalar(select(EventoSismico).where(EventoSismico.id_externo == "usgs:fuerte"))
+    alerta = db.get(Alerta, evento.alerta_id)
+    assert alerta.titulo == "SISMO FUERTE de magnitud 6.4"
+    # Con un sismo muy fuerte el push sale por el job general, no por el de la zona
+    assert ("notificar_alerta_general", (str(alerta.id),)) in encolados
+    assert ("notificar_alerta_zona", (str(alerta.id),)) not in encolados
+    # El "¿Estás bien?" sigue siendo solo para quien está dentro del radio
+    check_ins = db.scalars(select(CheckIn).where(CheckIn.evento_sismico_id == evento.id)).all()
+    assert [c.usuario_id for c in check_ins] == [en_valledupar.id]
+
+    enviados: list[tuple[set, str]] = []
+    monkeypatch.setattr(job_general, "SessionLocal", lambda: _SesionDePrueba(db))
+    monkeypatch.setattr(
+        notificaciones_service,
+        "notificar_usuarios",
+        lambda db, usuarios, titulo, cuerpo, datos=None: enviados.append((set(usuarios), datos["urgente"])) or 0,
+    )
+    resultado = job_general.notificar_alerta_general.run(str(alerta.id))
+    assert resultado["en_zona"] == 1 and resultado["informados"] >= 2
+    sos, aviso = enviados
+    assert sos == ({en_valledupar.id}, "1")  # alerta SOS: está cerca del epicentro
+    assert aviso[1] == "0" and {en_bogota.id, sin_ubicacion.id} <= aviso[0] and en_valledupar.id not in aviso[0]
+
+
 def test_lista_por_region_y_mapa_mundial(cliente, db, crear_usuario, headers_de, entorno, monkeypatch):
     _sincronizar(monkeypatch, _feature("col", 3.2, 7.1, -73.1), _feature("chile", 5.1, -33.4, -70.6))
     h = headers_de(crear_usuario(C))

@@ -5,6 +5,8 @@
 - Solo los de Colombia (o un simulacro), desde SISMOS_MAGNITUD_ALERTA (4.5): se publica una alerta
   del sistema sobre el epicentro y se abre un "¿Estás bien?" a quien tenga su ubicación reciente
   dentro del radio.
+- Desde SISMOS_MAGNITUD_ALERTA_GENERAL (6.0) el push de esa alerta va a TODOS los usuarios activos,
+  estén donde estén; el "¿Estás bien?" sigue siendo solo para los del radio.
 - El radio crece con la magnitud: 10 km para un 4.5 y se duplica por cada punto (tope 300 km).
 - `POST /sismos/simular` (solo super admin y solo en local) crea uno falso para la demo.
 - Todo se presenta como información de fuentes públicas, no como alerta temprana oficial.
@@ -54,6 +56,10 @@ def es_local(evento: EventoSismico) -> bool:
     return en_colombia(epicentro["lat"], epicentro["lng"])
 
 
+def es_general(evento: EventoSismico) -> bool:
+    return evento.magnitud >= get_settings().sismos_magnitud_alerta_general
+
+
 def a_salida(db: Session, usuario: Usuario | None, evento: EventoSismico) -> SismoOut:
     salida = SismoOut.model_validate(evento)
     salida.en_colombia = es_local(evento)
@@ -87,12 +93,13 @@ def atender_si_es_fuerte(db: Session, evento: EventoSismico) -> bool:
         return False
     if not es_local(evento):
         return False
+    general = es_general(evento)
     epicentro = latlng_desde_punto(evento.epicentro)
     alerta = alertas_service.publicar(
         db,
         creado_por=None,  # la crea el sistema
         organizacion_id=None,
-        titulo=f"Sismo de magnitud {evento.magnitud:.1f}",
+        titulo=f"{'SISMO FUERTE' if general else 'Sismo'} de magnitud {evento.magnitud:.1f}",
         tipo="sismo",
         mensaje=(
             f"{evento.lugar}. Si estás en la zona, revisa si hay heridos y daños, aléjate de estructuras "
@@ -104,6 +111,7 @@ def atender_si_es_fuerte(db: Session, evento: EventoSismico) -> bool:
         radio_m=evento.radio_afectacion_m,
         horas_vigencia=HORAS_ALERTA,
         origen="sismo",
+        alcance="todos" if general else "zona",
     )
     evento.alerta_id = alerta.id
     db.flush()

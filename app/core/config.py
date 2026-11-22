@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     sismos_feed_dia_url: str = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
     # Desde esta magnitud se publica la alerta y se pregunta "¿Estás bien?" a quien esté cerca
     sismos_magnitud_alerta: float = 4.5
+    # Desde esta magnitud (sismo en Colombia) el push de la alerta va a TODOS los usuarios activos
+    sismos_magnitud_alerta_general: float = 6.0
     # Minutos para responder el "¿Estás bien?" antes de avisar a los contactos de emergencia
     check_in_minutos: int = 10
 
