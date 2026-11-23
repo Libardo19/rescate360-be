@@ -1,7 +1,7 @@
 """Almacenamiento de fotos y videos (evidencias de reportes; más adelante, fotos de personas).
 
-En local los archivos van a la carpeta UPLOADS_DIR (dentro del repo, ignorada por git) y la
-API los sirve en /uploads. Cuando haya bucket (STORAGE_BUCKET), solo cambia este archivo.
+Con STORAGE_BACKEND=local los archivos van a UPLOADS_DIR y la API los sirve en /uploads.
+Con STORAGE_BACKEND=azure van a un contenedor de Blob Storage y se devuelve su URL pública.
 
 El tipo se decide por los primeros bytes del archivo, NO por la extensión ni por el
 Content-Type que manda el cliente: un .exe renombrado a .jpg se rechaza.
@@ -14,6 +14,22 @@ from pathlib import Path
 from app.core.config import get_settings
 
 URL_BASE = "/uploads"
+
+
+def _es_azure() -> bool:
+    return get_settings().storage_backend.lower() == "azure"
+
+
+def _contenedor():
+    settings = get_settings()
+    if not settings.storage_bucket:
+        raise RuntimeError("STORAGE_BUCKET es obligatorio cuando STORAGE_BACKEND=azure")
+    if not settings.azure_storage_connection_string:
+        raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING es obligatorio cuando STORAGE_BACKEND=azure")
+    from azure.storage.blob import BlobServiceClient
+
+    servicio = BlobServiceClient.from_connection_string(settings.azure_storage_connection_string)
+    return servicio.get_container_client(settings.storage_bucket)
 
 
 @dataclass(frozen=True)
@@ -73,13 +89,19 @@ def guardar(contenido: bytes, carpeta: str) -> ArchivoGuardado:
     """Valida y guarda. El nombre es un uuid: nunca se usa el nombre que manda el cliente."""
     tipo = validar(contenido)
     ruta = f"{carpeta}/{uuid.uuid4().hex}.{tipo.extension}"
-    destino = Path(get_settings().uploads_dir) / ruta
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_bytes(contenido)
+    if _es_azure():
+        _contenedor().upload_blob(name=ruta, data=contenido, overwrite=True)
+    else:
+        destino = Path(get_settings().uploads_dir) / ruta
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_bytes(contenido)
     return ArchivoGuardado(ruta=ruta, mime=tipo.mime, clase=tipo.clase, tamano_bytes=len(contenido))
 
 
 def borrar(ruta: str) -> None:
+    if _es_azure():
+        _contenedor().delete_blob(ruta)
+        return
     (Path(get_settings().uploads_dir) / ruta).unlink(missing_ok=True)
 
 
@@ -87,4 +109,12 @@ def url_publica(ruta: str) -> str:
     # Rutas que ya son URL (datos viejos de foto_url) se devuelven tal cual
     if ruta.startswith(("http://", "https://", "/")):
         return ruta
+    settings = get_settings()
+    if _es_azure():
+        base = settings.storage_public_url.rstrip("/")
+        if not base:
+            if not settings.azure_storage_account_name:
+                raise RuntimeError("AZURE_STORAGE_ACCOUNT_NAME o STORAGE_PUBLIC_URL es obligatorio cuando STORAGE_BACKEND=azure")
+            base = f"https://{settings.azure_storage_account_name}.blob.core.windows.net/{settings.storage_bucket}".rstrip("/")
+        return f"{base}/{ruta.lstrip('/')}"
     return f"{URL_BASE}/{ruta}"

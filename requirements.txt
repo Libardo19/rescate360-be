@@ -28,6 +28,7 @@ redis==6.4.0
 
 # --- Integraciones externas ---
 anthropic==1.9.0
+azure-storage-blob==12.31.1
 firebase-admin==7.7.0
 twilio==9.11.2
 shapely==2.1.2
