@@ -13,6 +13,8 @@ htmlcov/
 venv/
 env/
 .env
+.env.azure
+.deploy/
 !.env.example
 
 # Credenciales

@@ -58,3 +58,33 @@ def test_guarda_con_nombre_propio_y_borra(carpeta):
 
 def test_url_publica_respeta_urls_viejas():
     assert storage_client.url_publica("https://cdn.x/foto.jpg") == "https://cdn.x/foto.jpg"
+
+
+class ContenedorFalso:
+    def __init__(self):
+        self.subidos = {}
+
+    def upload_blob(self, name, data, overwrite):
+        self.subidos[name] = data
+
+    def delete_blob(self, ruta):
+        self.subidos.pop(ruta, None)
+
+
+def test_guarda_en_azure_y_borra(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "storage_backend", "azure")
+    monkeypatch.setattr(settings, "storage_bucket", "evidencias")
+    monkeypatch.setattr(settings, "azure_storage_account_name", "cuenta")
+    monkeypatch.setattr(settings, "azure_storage_connection_string", "connection-string")
+    contenedor = ContenedorFalso()
+    monkeypatch.setattr(storage_client, "_contenedor", lambda: contenedor)
+
+    guardado = storage_client.guardar(PNG, "reportes")
+    assert contenedor.subidos[guardado.ruta] == PNG
+    assert storage_client.url_publica(guardado.ruta).startswith(
+        "https://cuenta.blob.core.windows.net/evidencias/reportes/"
+    )
+
+    storage_client.borrar(guardado.ruta)
+    assert guardado.ruta not in contenedor.subidos

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_env: str = "local"
 
     database_url: str
-    redis_url: str
+    redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret: str
     jwt_algorithm: str = "HS256"
@@ -30,7 +30,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
+    storage_backend: str = "local"
     storage_bucket: str = ""
+    azure_storage_connection_string: str = ""
+    azure_storage_account_name: str = ""
+    storage_public_url: str = ""
     # Carpeta local de fotos y videos (servida en /uploads) y tamaños máximos por archivo
     uploads_dir: str = "uploads"
     foto_max_mb: int = 5
