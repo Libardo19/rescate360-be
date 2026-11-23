@@ -65,6 +65,10 @@ docker compose exec api alembic upgrade head      # aplica las migraciones
 
 `.github/workflows/ci.yml` levanta PostGIS y Redis como servicios, instala dependencias, corre `pip check`, `alembic upgrade head` y `pytest`.
 
+### Despliegue en Azure
+
+Guía de recursos, costos, secretos y pasos manuales: [deploy/azure/README.md](deploy/azure/README.md).
+
 ## Arquitectura de 4 capas
 
 Toda petición atraviesa las capas en el mismo orden:

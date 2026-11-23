@@ -40,14 +40,14 @@ Requiere superadministrador existente y `GEMINI_API_KEY` configurada:
 ```bash
 docker compose up -d --force-recreate api worker beat
 docker compose exec -T api python -m scripts.probar_ia_real
-# Para comprobar también el túnel:
-docker compose exec -T api python -m scripts.probar_ia_real --url https://TU-TUNEL.trycloudflare.com
+# Para comprobar también la API desplegada:
+docker compose exec -T api python -m scripts.probar_ia_real --url https://<fqdn>.azurecontainerapps.io
 ```
 
 El script crea una cuenta sintética y casos nuevos; requiere `APP_ENV=local`.
 No imprime tokens ni claves. Falla si solicitudes/reportes usan el respaldo por
 reglas en lugar de Gemini, o si el worker no entrega resultados.
 
-El APK del frontend usa `config/demo.json`. Su URL temporal funciona mientras
-el PC, Docker y cloudflared continúen activos. Reiniciar el túnel requiere
-actualizar la URL y volver a compilar el APK. No sustituye un hosting permanente.
+El APK del frontend usa `config/demo.json`, que ya trae el FQDN de Azure; recompila
+con `scripts/compilar-apk.ps1`. La guía completa está en
+[deploy/azure/README.md](../deploy/azure/README.md).
