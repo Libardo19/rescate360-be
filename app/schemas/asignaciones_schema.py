@@ -28,6 +28,7 @@ class AsignacionOut(BaseModel):
     voluntario_id: UUID
     estado_asignacion: EstadoAsignacion
     asignado_en: datetime
+    cerrada_en: datetime | None = None
 
 
 class VoluntarioAtencionOut(BaseModel):
