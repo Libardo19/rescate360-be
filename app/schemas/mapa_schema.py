@@ -21,8 +21,10 @@ class PuntoMapa(BaseModel):
     prioridad: str | None = None
     lat: float
     lng: float
-    # Zonas, alertas y sismos se dibujan como círculo
+    # Zonas, alertas y sismos de Colombia se dibujan como círculo (los de afuera, sin radio)
     radio_m: float | None = None
+    # Solo los sismos: el cliente dibuja el punto más grande cuanto mayor la magnitud
+    magnitud: float | None = None
     # True = la posición está redondeada (~200 m) porque el caso es de otra persona u organización
     aproximada: bool
     # True = puedo actuar sobre él según el módulo y mis permisos

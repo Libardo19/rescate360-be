@@ -11,6 +11,7 @@ JOBS = [
     "app.jobs.eventos.clasificar_prioridad_ia",
     "app.jobs.eventos.clasificar_reporte_ia",
     "app.jobs.eventos.enviar_sms_respaldo",
+    "app.jobs.eventos.notificar_alerta_general",
     "app.jobs.eventos.notificar_alerta_zona",
     "app.jobs.eventos.notificar_persona_encontrada",
     "app.jobs.eventos.notificar_voluntarios_cercanos",

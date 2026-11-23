@@ -63,18 +63,20 @@ def _ubicar(db, usuario, lat, lng):
 # --- feed ---
 
 
-def test_parsea_solo_colombia_y_con_magnitud():
+def test_parsea_todo_el_mundo_con_magnitud_valida():
     sismos = sismos_client.parsear(
         {
             "features": [
                 _feature("co1", 4.8, 7.1, -73.1),  # Santander
-                _feature("cl1", 6.0, -33.4, -70.6),  # Chile: fuera
+                _feature("cl1", 6.0, -33.4, -70.6),  # Chile: también se guarda (sale en el mapa)
+                _feature("micro", -0.4, 38.8, -122.8),  # magnitud negativa: se descarta
                 {**_feature("sin", 3.0, 7.0, -73.0), "properties": {"mag": None, "place": "x", "time": 0}},
             ]
         }
     )
-    assert [s.id_externo for s in sismos] == ["usgs:co1"]
+    assert [s.id_externo for s in sismos] == ["usgs:co1", "usgs:cl1"]
     assert sismos[0].magnitud == 4.8 and sismos[0].profundidad_km == 12.0
+    assert sismos_client.en_colombia(7.1, -73.1) and not sismos_client.en_colombia(-33.4, -70.6)
 
 
 def test_radio_y_nivel_crecen_con_la_magnitud():
@@ -92,7 +94,7 @@ def test_sincronizar_es_idempotente_y_alerta_solo_los_fuertes(db, crear_usuario,
         sismos_client.parsear({"features": [_feature("fuerte", 5.0, *VALLEDUPAR)]})[0],
         sismos_client.parsear({"features": [_feature("leve", 3.1, 7.0, -73.0)]})[0],
     ]
-    monkeypatch.setattr(sismos_client, "obtener_recientes", lambda: feed)
+    monkeypatch.setattr(sismos_client, "obtener_recientes", lambda url=None: feed)
 
     assert job_sismos.sincronizar_sismos.run() == {"status": "ok", "nuevos": 2, "alertados": 1}
     assert job_sismos.sincronizar_sismos.run() == {"status": "ok", "nuevos": 0, "alertados": 0}
@@ -184,7 +186,7 @@ def test_no_se_responde_el_de_otro(cliente, crear_usuario, headers_de):
     assert r.status_code == 404
 
 
-def test_vencido_queda_sin_respuesta_y_avisa_a_los_contactos(cliente, db, crear_usuario, headers_de, entorno):
+def test_vencido_queda_sin_respuesta_sube_sos_y_avisa(cliente, db, crear_usuario, headers_de, entorno, encolados):
     sms = entorno
     usuario = crear_usuario(C)
     h = headers_de(usuario)
@@ -198,6 +200,24 @@ def test_vencido_queda_sin_respuesta_y_avisa_a_los_contactos(cliente, db, crear_
     db.refresh(fila)
     assert fila.estado == EstadoCheckIn.SIN_RESPUESTA
     assert sms[0][0] == "+573001234567" and "10.46000,-73.25000" in sms[0][1] and usuario.nombre in sms[0][1]
+    assert "Pedimos ayuda" in sms[0][1]
+    # No respondió ni sí ni no: se subió su SOS automático, crítico y con su ubicación
+    sos = db.get(SolicitudAyuda, fila.solicitud_id)
+    assert sos.origen == OrigenSolicitud.SOS and sos.usuario_id == usuario.id
+    assert "no respondió" in sos.descripcion
+    # El SMS a los contactos lo manda este job: el SOS no encola otro
+    assert not [e for e in encolados if e == ("enviar_sms_respaldo", (str(sos.id),))]
+
+
+def test_vencido_sin_ubicacion_no_crea_sos(db, crear_usuario, headers_de, cliente, entorno):
+    h = headers_de(crear_usuario(C))
+    check_in = cliente.post("/check-ins", json={}, headers=h).json()
+    fila = db.get(CheckIn, UUID(check_in["id"]))
+    fila.vence_en = datetime.now(UTC) - timedelta(minutes=1)
+    db.flush()
+    assert job_vencer.vencer_check_ins.run()["vencidos"] == 1
+    db.refresh(fila)
+    assert fila.estado == EstadoCheckIn.SIN_RESPUESTA and fila.solicitud_id is None
 
 
 def test_panel_ve_el_resumen_del_sismo(cliente, db, crear_usuario, headers_de, entorno):
@@ -225,3 +245,111 @@ def test_capa_de_sismos_en_el_mapa(cliente, crear_usuario, headers_de, entorno):
     puntos = cliente.get("/mapa", params={"capas": "sismos,alertas"}, headers=headers_de(crear_usuario(C))).json()["puntos"]
     capas = {p["capa"] for p in puntos if p["id"] in (sismo["id"], sismo["alerta_id"])}
     assert capas == {"sismo", "alerta"}
+
+
+# --- sismos de todo el mundo ---
+
+
+def _sincronizar(monkeypatch, *features):
+    feed = sismos_client.parsear({"features": list(features)})
+    monkeypatch.setattr(sismos_client, "obtener_recientes", lambda url=None: feed)
+    return job_sismos.sincronizar_sismos.run()
+
+
+def test_sismo_fuera_de_colombia_se_muestra_pero_no_alerta(db, crear_usuario, entorno, encolados, monkeypatch):
+    assert _sincronizar(monkeypatch, _feature("japon", 7.4, 36.1, 140.1)) == {"status": "ok", "nuevos": 1, "alertados": 0}
+    evento = db.scalar(select(EventoSismico).where(EventoSismico.id_externo == "usgs:japon"))
+    assert evento.alerta_id is None and not sismos_service.es_local(evento)
+    assert not [e for e in encolados if e[0].startswith("notificar_alerta")]
+
+
+def test_el_feed_del_dia_no_repite_los_ya_registrados(db, entorno, monkeypatch):
+    urls: list[str | None] = []
+    feed = sismos_client.parsear({"features": [_feature("uno", 2.0, 0.0, 120.0), _feature("dos", 3.0, 1.0, 121.0)]})
+
+    def _obtener(url=None):
+        urls.append(url)
+        return feed
+
+    monkeypatch.setattr(sismos_client, "obtener_recientes", _obtener)
+    assert job_sismos.sincronizar_sismos.run()["nuevos"] == 2
+    assert job_sismos.sincronizar_sismos.run(dia=True)["nuevos"] == 0
+    assert urls == [None, get_settings().sismos_feed_dia_url]
+
+
+def test_sismo_moderado_solo_avisa_a_la_zona(db, entorno, encolados, monkeypatch):
+    _sincronizar(monkeypatch, _feature("moderado", 5.4, *VALLEDUPAR))
+    evento = db.scalar(select(EventoSismico).where(EventoSismico.id_externo == "usgs:moderado"))
+    assert ("notificar_alerta_zona", (str(evento.alerta_id),)) in encolados
+    assert db.get(Alerta, evento.alerta_id).titulo.startswith("Sismo de magnitud")
+
+
+def test_sismo_muy_fuerte_sos_cerca_y_aviso_lejos(db, crear_usuario, entorno, encolados, monkeypatch):
+    from app.jobs.eventos import notificar_alerta_general as job_general
+    from app.services import notificaciones_service
+
+    en_valledupar, en_bogota, sin_ubicacion = crear_usuario(C), crear_usuario(C), crear_usuario(C)
+    _ubicar(db, en_valledupar, 10.47, -73.25)
+    _ubicar(db, en_bogota, 4.71, -74.07)
+    _sincronizar(monkeypatch, _feature("fuerte", 6.4, *VALLEDUPAR))
+    evento = db.scalar(select(EventoSismico).where(EventoSismico.id_externo == "usgs:fuerte"))
+    alerta = db.get(Alerta, evento.alerta_id)
+    assert alerta.titulo == "SISMO FUERTE de magnitud 6.4"
+    # Con un sismo muy fuerte el push sale por el job general, no por el de la zona
+    assert ("notificar_alerta_general", (str(alerta.id),)) in encolados
+    assert ("notificar_alerta_zona", (str(alerta.id),)) not in encolados
+    # El "¿Estás bien?" sigue siendo solo para quien está dentro del radio
+    check_ins = db.scalars(select(CheckIn).where(CheckIn.evento_sismico_id == evento.id)).all()
+    assert [c.usuario_id for c in check_ins] == [en_valledupar.id]
+
+    enviados: list[tuple[set, str]] = []
+    monkeypatch.setattr(job_general, "SessionLocal", lambda: _SesionDePrueba(db))
+    monkeypatch.setattr(
+        notificaciones_service,
+        "notificar_usuarios",
+        lambda db, usuarios, titulo, cuerpo, datos=None: enviados.append((set(usuarios), datos["urgente"])) or 0,
+    )
+    resultado = job_general.notificar_alerta_general.run(str(alerta.id))
+    assert resultado["en_zona"] == 1 and resultado["informados"] >= 2
+    sos, aviso = enviados
+    assert sos == ({en_valledupar.id}, "1")  # alerta SOS: está cerca del epicentro
+    assert aviso[1] == "0" and {en_bogota.id, sin_ubicacion.id} <= aviso[0] and en_valledupar.id not in aviso[0]
+
+
+def test_lista_por_region_y_mapa_mundial(cliente, db, crear_usuario, headers_de, entorno, monkeypatch):
+    _sincronizar(monkeypatch, _feature("col", 3.2, 7.1, -73.1), _feature("chile", 5.1, -33.4, -70.6))
+    h = headers_de(crear_usuario(C))
+
+    def _ids(region=None):
+        params = {"region": region} if region else {}
+        items = cliente.get("/sismos", params=params, headers=h).json()["items"]
+        return {s["lugar"].split("(")[1][:-1]: s["en_colombia"] for s in items}
+
+    assert {"col": True, "chile": False}.items() <= _ids().items()
+    assert "chile" not in _ids("colombia") and "col" in _ids("colombia")
+    assert "col" not in _ids("mundo") and "chile" in _ids("mundo")
+    assert cliente.get("/sismos", params={"region": "marte"}, headers=h).status_code == 422
+
+    # El mapa trae los de todo el mundo, sin importar dónde está quien consulta
+    puntos = cliente.get(
+        "/mapa", params={"capas": "sismos", "lat": 10.46, "lng": -73.25, "radio_m": 5000}, headers=h
+    ).json()["puntos"]
+    por_lugar = {p["detalle"].split("(")[1][:-1]: p for p in puntos if p["capa"] == "sismo"}
+    assert por_lugar["chile"]["estado"] == "mundo" and por_lugar["chile"]["radio_m"] is None
+    assert por_lugar["chile"]["magnitud"] == 5.1
+    assert por_lugar["col"]["estado"] == "colombia" and por_lugar["col"]["radio_m"] > 0
+
+
+def test_retencion_borra_los_sismos_lejanos_viejos(db, entorno, monkeypatch):
+    from app.jobs.programados import limpiar_datos_retencion as job_retencion
+
+    monkeypatch.setattr(job_retencion, "SessionLocal", lambda: _SesionDePrueba(db))
+    _sincronizar(
+        monkeypatch,
+        _feature("viejo_lejos", 4.0, 0.0, 120.0, minutos_atras=60 * 24 * 10),
+        _feature("viejo_col", 3.0, 7.1, -73.1, minutos_atras=60 * 24 * 10),
+        _feature("nuevo_lejos", 4.0, 1.0, 121.0),
+    )
+    assert job_retencion.limpiar_datos_retencion.run()["sismos_mundo"] >= 1
+    quedan = set(db.scalars(select(EventoSismico.id_externo)))
+    assert "usgs:viejo_lejos" not in quedan and {"usgs:viejo_col", "usgs:nuevo_lejos"} <= quedan

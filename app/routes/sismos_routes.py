@@ -13,7 +13,7 @@ router = APIRouter(tags=["sismos"])
 # --- sismos ---
 
 router.get(
-    "/sismos", response_model=Pagina[SismoOut], summary="Sismos recientes en Colombia (fuentes públicas: USGS/SGC)"
+    "/sismos", response_model=Pagina[SismoOut], summary="Sismos de todo el mundo; region=colombia o region=mundo para filtrar (USGS/SGC)"
 )(sismos_controller.listar_sismos)
 
 # /simular va antes de /{evento_id} para que no se lea como un id

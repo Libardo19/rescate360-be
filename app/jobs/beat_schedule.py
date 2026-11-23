@@ -11,6 +11,12 @@ BEAT_SCHEDULE: dict = {
         "task": "app.jobs.programados.sincronizar_sismos.sincronizar_sismos",
         "schedule": 60.0,
     },
+    # El feed del día completo: recupera los sismos que se perdieron si el worker estuvo apagado
+    "sincronizar-sismos-dia": {
+        "task": "app.jobs.programados.sincronizar_sismos.sincronizar_sismos",
+        "schedule": crontab(minute="*/30"),
+        "kwargs": {"dia": True},
+    },
     "vencer-check-ins": {
         "task": "app.jobs.programados.vencer_check_ins.vencer_check_ins",
         "schedule": 60.0,

@@ -37,6 +37,8 @@ class SismoOut(BaseModel):
     ocurrido_en: datetime
     radio_afectacion_m: float
     alerta_id: UUID | None
+    # Dentro de Colombia (o simulacro): solo estos alertan; los demás son informativos
+    en_colombia: bool = False
     # Solo si conozco la ubicación del usuario: metros desde su posición hasta el epicentro
     distancia_m: float | None = None
     aviso: str = AVISO_SISMOS
